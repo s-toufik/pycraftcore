@@ -3,33 +3,33 @@ from unittest.mock import MagicMock, patch
 
 from omegaconf import DictConfig, OmegaConf
 
-from pycraftcore.app_configuration.adapter.omega_configuration_reader import (
+from pycraftcore.application_configuration.adapter.omega_configuration_reader import (
     OmegaConfigurationReader,
 )
-from pycraftcore.app_configuration.enum.run_type_application import (
+from pycraftcore.application_configuration.enum.run_type_application import (
     RunTypeApplication,
 )
-from pycraftcore.app_configuration.enum.run_type_environment import (
+from pycraftcore.application_configuration.enum.run_type_environment import (
     RunTypeEnvironment,
 )
-from pycraftcore.app_configuration.model.configuration import AppConfiguration
+from pycraftcore.application_configuration.model.configuration import ApplicationConfiguration
 
 
 @patch(
-    "pycraftcore.app_configuration.adapter.omega_configuration_reader.MapperDomainSchema.map"
+    "pycraftcore.application_configuration.adapter.omega_configuration_reader.MapperDomainSchema.map"
 )
 @patch(
-    "pycraftcore.app_configuration.adapter.omega_configuration_reader.AppConfigurationSchema"
+    "pycraftcore.application_configuration.adapter.omega_configuration_reader.ApplicationConfigurationSchema"
 )
 @patch(
-    "pycraftcore.app_configuration.adapter.omega_configuration_reader.OmegaConf.to_container"
+    "pycraftcore.application_configuration.adapter.omega_configuration_reader.OmegaConf.to_container"
 )
 def test_read_orchestration(mock_to_container, mock_schema, mock_mapper):
     env = RunTypeEnvironment.production
     config_dir = Path("/fake/config")
     reader = OmegaConfigurationReader(env, config_dir)
     fake_dict_config = MagicMock(spec=DictConfig)
-    fake_dict_config.app_configuration = MagicMock()
+    fake_dict_config.application_configuration = MagicMock()
     fake_app_configuration = MagicMock()
 
     expected_container = {"name": "test-app"}
@@ -50,7 +50,7 @@ def test_read_orchestration(mock_to_container, mock_schema, mock_mapper):
         )
 
         mock_to_container.assert_called_once_with(
-            fake_dict_config.app_configuration,
+            fake_dict_config.application_configuration,
             resolve=True,
             throw_on_missing=True,
         )
@@ -68,7 +68,7 @@ def test_read_validation_schema():
 
     fake_dict_config = OmegaConf.create(
         {
-            "app_configuration": {
+            "application_configuration": {
                 "env": "debug",
                 "run": "async",
                 "connector": {},
@@ -84,7 +84,7 @@ def test_read_validation_schema():
         return_value=fake_dict_config,
     ):
         result = reader.read()
-        assert isinstance(result, AppConfiguration)
+        assert isinstance(result, ApplicationConfiguration)
         assert result.env == RunTypeEnvironment.debug
         assert result.run == RunTypeApplication.asynchronous
 
@@ -96,12 +96,12 @@ def test_omega_read_merges_real_yml_files_from_disk(tmp_path):
     (env_dir / "cronjob").mkdir(parents=True)
     (env_dir / "connector" / "db.yml").write_text("connector:\n  database:\n    users: {}\n")
     (tmp_path / "root.yml").write_text(
-        "app_configuration:\n  env: debug\n  run: async\n  connector: {}\n  operation: {}\n  cronjob: []\n"
+        "application_configuration:\n  env: debug\n  run: async\n  connector: {}\n  operation: {}\n  cronjob: []\n"
     )
 
     reader = OmegaConfigurationReader(RunTypeEnvironment.debug, tmp_path)
 
     result = reader.read()
 
-    assert isinstance(result, AppConfiguration)
+    assert isinstance(result, ApplicationConfiguration)
     assert result.env == RunTypeEnvironment.debug

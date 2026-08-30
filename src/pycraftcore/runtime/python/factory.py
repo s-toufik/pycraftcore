@@ -9,11 +9,7 @@ class SafeCodeFactory:
     def __init__(self, settings: SafeCodeSettings | None = None) -> None:
         self._settings = settings or SafeCodeSettings()
 
-    def __call__(
-        self,
-        code: str,
-        code_template: Template | None = None
-    ) -> Code:
+    def __call__(self, code: str, code_template: Template | None = None) -> Code:
         return SafeCode(
             code=code,
             code_template=code_template,

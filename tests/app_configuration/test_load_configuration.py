@@ -3,21 +3,21 @@ from unittest.mock import create_autospec
 
 import pytest
 
-from pycraftcore.app_configuration import (
+from pycraftcore.application_configuration import (
     ConfigurationReader,
 )
-from pycraftcore.app_configuration.adapter.load_configuration import (
-    LoadConfiguration,
+from pycraftcore.application_configuration.adapter.load_application_configuration import (
+    LoadApplicationConfiguration,
 )
-from pycraftcore.app_configuration.model.configuration import AppConfiguration
+from pycraftcore.application_configuration.model.configuration import ApplicationConfiguration
 from pycraftcore.logger.port import Logger
 
 
 @pytest.fixture(autouse=True)
 def reset_singleton():
-    LoadConfiguration._instance = None
+    LoadApplicationConfiguration._instance = None
     yield
-    LoadConfiguration._instance = None
+    LoadApplicationConfiguration._instance = None
 
 
 @pytest.fixture
@@ -32,25 +32,25 @@ def mock_logger():
 
 @pytest.fixture
 def mock_config():
-    return create_autospec(AppConfiguration, instance=True)
+    return create_autospec(ApplicationConfiguration, instance=True)
 
 
 @pytest.fixture
 def loader(mock_reader, mock_logger):
-    return LoadConfiguration(mock_reader, mock_logger)
+    return LoadApplicationConfiguration(mock_reader, mock_logger)
 
 
 class TestSingleton:
     def test_same_instance_returned_on_multiple_instantiations(self, mock_reader, mock_logger):
-        instance_a = LoadConfiguration(mock_reader, mock_logger)
-        instance_b = LoadConfiguration(mock_reader, mock_logger)
+        instance_a = LoadApplicationConfiguration(mock_reader, mock_logger)
+        instance_b = LoadApplicationConfiguration(mock_reader, mock_logger)
         assert instance_a is instance_b
 
     def test_singleton_is_thread_safe(self, mock_reader, mock_logger):
         instances = []
 
         def create_instance():
-            instances.append(LoadConfiguration(mock_reader, mock_logger))
+            instances.append(LoadApplicationConfiguration(mock_reader, mock_logger))
 
         threads = [threading.Thread(target=create_instance) for _ in range(20)]
         for t in threads:
@@ -103,7 +103,7 @@ class TestReload:
         assert mock_reader.read.call_count == 2
 
     def test_reload_updates_cached_config(self, loader, mock_reader, mock_config):
-        old_config = create_autospec(AppConfiguration, instance=True)
+        old_config = create_autospec(ApplicationConfiguration, instance=True)
         new_config = mock_config
         mock_reader.read.side_effect = [old_config, new_config]
 

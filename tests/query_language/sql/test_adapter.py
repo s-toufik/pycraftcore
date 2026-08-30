@@ -25,9 +25,10 @@ def test_parse_raises_value_error_for_invalid_sql():
 def test_parse_raises_value_error_when_a_statement_parses_to_none():
     handler = SqlExpressionHandler("SELECT 1", "sqlite")
 
-    with patch(
-        "pycraftcore.query_language.sql.adapter.parse", return_value=[None]
-    ), pytest.raises(ValueError, match="SQL Expression could not be parsed"):
+    with (
+        patch("pycraftcore.query_language.sql.adapter.parse", return_value=[None]),
+        pytest.raises(ValueError, match="SQL Expression could not be parsed"),
+    ):
         handler.parse()
 
 
@@ -38,9 +39,7 @@ def test_validate_safe_query_accepts_select():
 
 
 def test_validate_safe_query_accepts_union():
-    handler = SqlExpressionHandler(
-        "SELECT id FROM a UNION SELECT id FROM b", "sqlite"
-    )
+    handler = SqlExpressionHandler("SELECT id FROM a UNION SELECT id FROM b", "sqlite")
 
     handler.validate_safe_query(handler.parse())
 

@@ -14,7 +14,9 @@ class SqlExpressionHandler:
 
     def parse(self) -> list[Expr]:
         try:
-            expressions: list[Expr | None] = parse(self._expression, self._dialect, error_level=ErrorLevel.RAISE)
+            expressions: list[Expr | None] = parse(
+                self._expression, self._dialect, error_level=ErrorLevel.RAISE
+            )
             if not all(expressions):
                 raise ValueError("SQL Expression could not be parsed")
 
@@ -28,13 +30,18 @@ class SqlExpressionHandler:
         expressions: list[Expr | None] = expressions or self.parse()
         for expression in expressions:
             if not isinstance(expression, ALLOWED_ROOT_STATEMENTS):
-                raise ValueError(f"SQL Expression contains forbidden statement: {type(expression).__name__}")
+                raise ValueError(
+                    f"SQL Expression contains forbidden statement: {type(expression).__name__}"
+                )
             for node in expression.walk():
                 if isinstance(node, FORBIDDEN_EXPRESSIONS):
-                    raise ValueError(f"SQL Expression contains forbidden statement: {type(node).__name__}")
+                    raise ValueError(
+                        f"SQL Expression contains forbidden statement: {type(node).__name__}"
+                    )
 
     def transpile(self, expressions: list[Expr] | None = None) -> str:
         expressions: list[Expr | None] = expressions or self.parse()
         self.validate_safe_query(expressions)
-        return ";\n".join(expression.sql(dialect=self._dialect) for expression in expressions if expression)
-
+        return ";\n".join(
+            expression.sql(dialect=self._dialect) for expression in expressions if expression
+        )

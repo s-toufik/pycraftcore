@@ -11,7 +11,7 @@ R = TypeVar("R")
 
 
 class RetryPolicy:
-    def __init__(self, settings: RetrySettings | None = None, logger: Logger | None= None):
+    def __init__(self, settings: RetrySettings | None = None, logger: Logger | None = None):
         self._settings = settings or RetrySettings()
         self._logger = logger
 

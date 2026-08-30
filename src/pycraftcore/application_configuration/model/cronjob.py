@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from pycraftcore.app_configuration.model.operation import OperationTyping
+from pycraftcore.application_configuration.model.operation import OperationTyping
 
 
 @dataclass(slots=True)

@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pycraftcore.app_configuration.enum.run_type_environment import RunTypeEnvironment
+from pycraftcore.application_configuration.enum.run_type_environment import RunTypeEnvironment
 from pycraftcore.http.context.request_context import request_id_context
 from pycraftcore.telemetry.adapter.open_telemetry import (
     OpenTelemetryProvider,
@@ -161,6 +161,7 @@ async def test_trace_enriches_span_with_request_id_when_set():
 
     token = request_id_context.set("req-123")
     try:
+
         @tracer.trace(span_name="op", static_attributes={})
         async def handler():
             return None

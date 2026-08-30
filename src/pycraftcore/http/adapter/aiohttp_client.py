@@ -13,7 +13,7 @@ from pycraftcore.http.port.async_http_client import AsyncHttpClient
 class AioHttpClient:
     __slots__ = ("_base_url", "_session")
 
-    def __init__(self,base_url: str, session: aiohttp.ClientSession) -> None:
+    def __init__(self, base_url: str, session: aiohttp.ClientSession) -> None:
 
         self._session: aiohttp.ClientSession = session
         self._base_url: str = base_url
@@ -30,7 +30,9 @@ class AioHttpClient:
 
         url: str = self._build_url(endpoint)
 
-        async with self._session.request(method=method, url=url, params=params, json=json, headers=headers) as response:
+        async with self._session.request(
+            method=method, url=url, params=params, json=json, headers=headers
+        ) as response:
             response.raise_for_status()
             content_type: Any = response.headers.get("Content-Type", "")
 
@@ -67,11 +69,20 @@ class AioHttpClient:
 
 
 class AioHttpClientFactory:
+    def __init__(
+        self,
+        http_client_settings: HttpClientSettings | None = None,
+        *,
+        timeout: int | None = None,
+        connector: aiohttp.BaseConnector | None = None,
+    ) -> None:
 
-    def __init__(self, http_client_settings: HttpClientSettings | None = None, *, timeout: int | None = None, connector: aiohttp.BaseConnector | None = None) -> None:
-
-        self._http_client_settings: HttpClientSettings = http_client_settings or HttpClientSettings()
-        self._timeout: aiohttp.ClientTimeout = aiohttp.ClientTimeout(total=timeout or self._http_client_settings.limits.timeout)
+        self._http_client_settings: HttpClientSettings = (
+            http_client_settings or HttpClientSettings()
+        )
+        self._timeout: aiohttp.ClientTimeout = aiohttp.ClientTimeout(
+            total=timeout or self._http_client_settings.limits.timeout
+        )
         self._connector: aiohttp.BaseConnector | None = connector
         self._owns_connector: bool = connector is None
 
@@ -93,7 +104,6 @@ class AioHttpClientFactory:
         await self._close_connector()
         self._session = None
 
-
     def create_client(self) -> AsyncHttpClient:
         session: aiohttp.ClientSession = self._ensure_session()
         return AioHttpClient(
@@ -103,7 +113,9 @@ class AioHttpClientFactory:
 
     def _ensure_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
-            raise RuntimeError("Factory session is not started. Either use the context manager or start the factory before creating the client")
+            raise RuntimeError(
+                "Factory session is not started. Either use the context manager or start the factory before creating the client"
+            )
 
         return self._session
 
@@ -135,14 +147,16 @@ class AioHttpClientFactory:
             )
 
     def _create_ssl_from_certificate(self) -> bool | ssl.SSLContext:
-        if certificate_path:=self._http_client_settings.security.certificate:
+        if certificate_path := self._http_client_settings.security.certificate:
             context = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
             context.load_verify_locations(cafile=certificate_path)
-            if tls_cipher_spec:=self._http_client_settings.security.tls_cipher_spec:
+            if tls_cipher_spec := self._http_client_settings.security.tls_cipher_spec:
                 context.set_ciphers(tls_cipher_spec)
             return context
         return False
 
     @property
     def resilient_client_instance(self) -> None:
-        raise NotImplementedError("For aiohttp adapter compose the resilient client using the resilient implementation")
+        raise NotImplementedError(
+            "For aiohttp adapter compose the resilient client using the resilient implementation"
+        )

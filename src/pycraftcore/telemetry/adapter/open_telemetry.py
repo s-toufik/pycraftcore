@@ -8,7 +8,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-from pycraftcore.app_configuration.enum.run_type_environment import (
+from pycraftcore.application_configuration.enum.run_type_environment import (
     RunTypeEnvironment,
 )
 from pycraftcore.http.context.request_context import request_id_context
@@ -56,27 +56,23 @@ class OpenTelemetryProvider:
                 )
             )
 
-   
-
     @staticmethod
     def tracer(service_name: str) -> OpenTelemetryTracer:
         return OpenTelemetryTracer(trace.get_tracer(service_name), service_name)
 
     def shutdown(self) -> None:
         self._provider.shutdown()
-        
-        
-        
+
+
 class OpenTelemetryTracer:
-    
     def __init__(self, tracer: Tracer, trace_name: str) -> None:
         self._tracer = tracer
         self._trace_name = trace_name
-    
+
     @property
     def tracer(self) -> Tracer:
         return self._tracer
-    
+
     def trace(self, span_name: str, static_attributes: dict[str, Any]) -> TraceType:
         def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
             @wraps(func)

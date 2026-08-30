@@ -3,14 +3,14 @@ from typing import cast, Any
 
 from omegaconf import OmegaConf, DictConfig
 
-from pycraftcore.app_configuration.adapter.schema import (
-    AppConfigurationSchema,
+from pycraftcore.application_configuration.adapter.schema import (
+    ApplicationConfigurationSchema,
     MapperDomainSchema,
 )
-from pycraftcore.app_configuration.enum.run_type_environment import (
+from pycraftcore.application_configuration.enum.run_type_environment import (
     RunTypeEnvironment,
 )
-from pycraftcore.app_configuration.model.configuration import AppConfiguration
+from pycraftcore.application_configuration.model.configuration import ApplicationConfiguration
 
 
 class OmegaConfigurationReader:
@@ -18,13 +18,12 @@ class OmegaConfigurationReader:
     ROOT_CONFIG_FILE_NAME = "root"
     CONNECTOR_CONFIG_FILE_NAME = "connector"
     OPERATION_CONFIG_FILE_NAME = "operation"
-    CRONJOB_CONFIG_FILE_NAME = "cronjob"
 
     def __init__(self, env: RunTypeEnvironment, config_directory: Path) -> None:
         self._env = env
         self._config_directory = config_directory
 
-    def read(self) -> AppConfiguration:
+    def read(self) -> ApplicationConfiguration:
         config_root: Path = (
             self._config_directory / f"{self.ROOT_CONFIG_FILE_NAME}.{self.FILE_EXTENSION}"
         )
@@ -32,9 +31,9 @@ class OmegaConfigurationReader:
 
         omega_config: DictConfig = self._omega_read(config_dir_env, config_root)
         omega_container: Any = OmegaConf.to_container(
-            omega_config.app_configuration, resolve=True, throw_on_missing=True
+            omega_config.application_configuration, resolve=True, throw_on_missing=True
         )
-        app_config_schema = AppConfigurationSchema(**omega_container)
+        app_config_schema = ApplicationConfigurationSchema(**omega_container)
         return MapperDomainSchema.map(app_config_schema)
 
     def _omega_read(self, config_dir_env: Path, config_root: Path) -> DictConfig:
@@ -43,7 +42,6 @@ class OmegaConfigurationReader:
             OmegaConf.merge(
                 *self._load_yml_dir(config_dir_env / self.CONNECTOR_CONFIG_FILE_NAME),
                 *self._load_yml_dir(config_dir_env / self.OPERATION_CONFIG_FILE_NAME),
-                *self._load_yml_dir(config_dir_env / self.CRONJOB_CONFIG_FILE_NAME),
                 OmegaConf.load(config_root),
             ),
         )
