@@ -180,7 +180,9 @@ class SafeCode:
             except asyncio.TimeoutError:
                 proc.kill()
                 await proc.wait()
-                return CodeStdout(stdout="", stderr=f"Execution timed out after {self._code_timeout}s.")
+                return CodeStdout(
+                    stdout="", stderr=f"Execution timed out after {self._code_timeout}s."
+                )
         except Exception as exc:
             return CodeStdout(stdout="", stderr=f"Subprocess error: {exc}")
         finally:

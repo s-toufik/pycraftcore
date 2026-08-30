@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Union
 
-from pycraftcore.app_configuration.enum.connector_type import ConnectorType
+from pycraftcore.application_configuration.enum.connector_type import ConnectorType
 from pycraftcore.authentication import AuthTyping
 
 

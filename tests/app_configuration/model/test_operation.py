@@ -1,7 +1,7 @@
-from pycraftcore.app_configuration.enum.connector_type import ConnectorType
-from pycraftcore.app_configuration.enum.file_operation_action import FileOperationAction
-from pycraftcore.app_configuration.model.connector import ApiConnector
-from pycraftcore.app_configuration.model.operation import ApiOperation, FileOperation
+from pycraftcore.application_configuration.enum.connector_type import ConnectorType
+from pycraftcore.application_configuration.enum.file_operation_action import FileOperationAction
+from pycraftcore.application_configuration.model.connector import ApiConnector
+from pycraftcore.application_configuration.model.operation import ApiOperation, FileOperation
 from pycraftcore.authentication.model.auth_type import AuthType
 from pycraftcore.authentication.model.no_auth import NoAuth
 from pycraftcore.http.enum.http_method import HttpMethod

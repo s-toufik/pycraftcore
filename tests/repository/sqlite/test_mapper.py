@@ -1,5 +1,5 @@
-from pycraftcore.app_configuration.enum.connector_type import ConnectorType
-from pycraftcore.app_configuration.model.connector import DatabaseConnector
+from pycraftcore.application_configuration.enum.connector_type import ConnectorType
+from pycraftcore.application_configuration.model.connector import DatabaseConnector
 from pycraftcore.authentication.model.auth_type import AuthType
 from pycraftcore.authentication.model.no_auth import NoAuth
 from pycraftcore.repository.sqlite.mapper import SqliteSettingsMapper

@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from typing import Union, List
 
-from pycraftcore.app_configuration.enum.file_operation_action import (
+from pycraftcore.application_configuration.enum.file_operation_action import (
     FileOperationAction,
 )
-from pycraftcore.app_configuration.model.connector import ConnectorTyping
+from pycraftcore.application_configuration.model.connector import ConnectorTyping
 from pycraftcore.http.enum.http_method import HttpMethod
 
 ParamType = Union[str, List[str]]

@@ -170,13 +170,17 @@ operation:
 ```python
 from pathlib import Path
 
-from pycraftcore.app_configuration.adapter.load_configuration import LoadConfiguration
-from pycraftcore.app_configuration.adapter.omega_configuration_reader import OmegaConfigurationReader
-from pycraftcore.app_configuration.enum.run_type_environment import RunTypeEnvironment
+from pycraftcore.application_configuration.adapter.load_application_configuration import (
+    LoadApplicationConfiguration,
+)
+from pycraftcore.application_configuration.adapter.omega_configuration_reader import (
+    OmegaConfigurationReader,
+)
+from pycraftcore.application_configuration.enum.run_type_environment import RunTypeEnvironment
 from pycraftcore.logger.adapter.loguru_logger import LoguruLogger
 
 reader = OmegaConfigurationReader(RunTypeEnvironment.production, Path("config"))
-loader = LoadConfiguration(reader, LoguruLogger())
+loader = LoadApplicationConfiguration(reader, LoguruLogger())
 
 config = loader.load()  # cached after the first successful read
 config = loader.reload()  # forces a fresh read
@@ -203,7 +207,12 @@ flowchart LR
 #### Complete Example
 
 ```python
-from pycraftcore.http.adapter import AioHttpClientFactory, CircuitBreakerPolicy, ResilientClient, RetryPolicy
+from pycraftcore.http.adapter import (
+    AioHttpClientFactory,
+    CircuitBreakerPolicy,
+    ResilientClient,
+    RetryPolicy,
+)
 from pycraftcore.http.configuration import CircuitBreakerSettings, HttpClientSettings, RetrySettings
 from pycraftcore.telemetry.adapter.open_telemetry import OpenTelemetryProvider
 
@@ -220,7 +229,9 @@ base_client = client_factory.create_client()
 retry_policy = RetryPolicy(RetrySettings(retry_count=3, retry_delay=1.0))
 
 # Circuit breaker
-circuit_breaker = CircuitBreakerPolicy(CircuitBreakerSettings(failure_threshold=2, recovery_timeout=30))
+circuit_breaker = CircuitBreakerPolicy(
+    CircuitBreakerSettings(failure_threshold=2, recovery_timeout=30)
+)
 
 # Telemetry via OpenTelemetry
 telemetry_provider = OpenTelemetryProvider(service_name="<external api name>")
@@ -312,7 +323,9 @@ a small pool of real connections (WAL mode, `busy_timeout` set) and hands out on
 from pycraftcore.repository.sqlite.factory import SQLiteRepositoryFactory
 from pycraftcore.repository.sqlite.schema import SqliteConnector
 
-factory = SQLiteRepositoryFactory(SqliteConnector(path="./data", default_name="app", max_pool_size=4))
+factory = SQLiteRepositoryFactory(
+    SqliteConnector(path="./data", default_name="app", max_pool_size=4)
+)
 
 repository = await factory.connect()
 rows = await repository.execute("SELECT * FROM users WHERE id = ?", (1,))

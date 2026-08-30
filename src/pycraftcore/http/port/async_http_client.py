@@ -2,6 +2,7 @@ from typing import Protocol, Any, Optional, TypeVar
 
 T = TypeVar("T")
 
+
 class AsyncHttpFactory(Protocol):
     async def start(self) -> None: ...
     async def close(self) -> None: ...
@@ -11,7 +12,6 @@ class AsyncHttpFactory(Protocol):
 
 
 class AsyncHttpClient(Protocol):
-
     async def get(
         self,
         endpoint: str,

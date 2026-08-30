@@ -5,11 +5,7 @@ from pycraftcore.runtime.python.schema import CodeStdout
 
 
 class CodeFactory(Protocol):
-    def __call__(
-        self,
-        code: str,
-        code_template: Optional[Template] = None
-    ) -> Code: ...
+    def __call__(self, code: str, code_template: Optional[Template] = None) -> Code: ...
 
 
 class Code(Protocol):

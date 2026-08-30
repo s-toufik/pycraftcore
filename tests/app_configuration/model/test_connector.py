@@ -1,5 +1,5 @@
-from pycraftcore.app_configuration.enum.connector_type import ConnectorType
-from pycraftcore.app_configuration.model.connector import (
+from pycraftcore.application_configuration.enum.connector_type import ConnectorType
+from pycraftcore.application_configuration.model.connector import (
     ApiConnector,
     DatabaseConnector,
     FileConnector,
