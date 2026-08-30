@@ -1,0 +1,15 @@
+connector:
+  postgres:
+    name: postgres
+    type: database
+    engine: postgres_sql
+    host: ${oc.env:DB_HOST}
+    port: 5432
+    default_name: ${oc.env:DB_NAME}
+    pool:
+      min: 2
+      max: 10
+    auth:
+      type: basic
+      username: ${oc.env:DB_USER}
+      password: ${oc.env:DB_PASSWORD}

@@ -1,0 +1,41 @@
+name: Release
+description: Track a new release
+title: "RELEASE - "
+labels: ["release/"]
+assignees: []
+
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: e.g. 1.2.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: highlights
+    attributes:
+      label: Highlights
+      placeholder: Key changes in this release
+    validations:
+      required: true
+
+  - type: textarea
+    id: changes
+    attributes:
+      label: Full changelog
+      placeholder: |
+        - Added ...
+        - Fixed ...
+        - Improved ...
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Release checklist
+      options:
+        - label: Tests passed
+        - label: Documentation updated
+        - label: Version bumped
+        - label: Changelog updated

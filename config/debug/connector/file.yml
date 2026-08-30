@@ -1,0 +1,7 @@
+connector:
+  local_fs:
+    name: local_fs
+    type: file
+    base_path: ./data/files
+    auth:
+      type: none

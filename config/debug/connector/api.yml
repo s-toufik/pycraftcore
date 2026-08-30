@@ -1,0 +1,22 @@
+connector:
+  alpha_vantage:
+    name: alpha_vantage
+    type: api
+    base_url: https://www.alphavantage.co
+    timeout: 5
+    retry: 3
+    auth:
+      type: token
+      key_name: apikey
+      key_value: ${oc.env:ALPHA_VANTAGE_API_KEY}
+
+  twelve_data:
+    name: twelve_data
+    type: api
+    base_url: https://api.twelvedata.com
+    timeout: 5
+    retry: 3
+    auth:
+      type: token
+      key_name: api_token
+      key_value: ${oc.env:TWELVE_DATA_API_KEY}

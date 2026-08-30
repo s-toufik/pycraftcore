@@ -1,0 +1,40 @@
+import traceback
+from typing import cast
+
+from sqlglot import Expr, errors, ErrorLevel, parse
+
+from pycraftcore.query_language.constants.allowed_root_statements import ALLOWED_ROOT_STATEMENTS
+from pycraftcore.query_language.constants.forbidden_statements import FORBIDDEN_EXPRESSIONS
+
+
+class SqlExpressionHandler:
+    def __init__(self, expression: str, dialect: str) -> None:
+        self._expression = expression
+        self._dialect = dialect
+
+    def parse(self) -> list[Expr]:
+        try:
+            expressions: list[Expr | None] = parse(self._expression, self._dialect, error_level=ErrorLevel.RAISE)
+            if not all(expressions):
+                raise ValueError("SQL Expression could not be parsed")
+
+            return cast(list[Expr], expressions)
+
+        except errors.SqlglotError as exception:
+            traceback.print_exc()
+            raise ValueError("SQL Expression could not be parsed")
+
+    def validate_safe_query(self, expressions: list[Expr | None]) -> None:
+        expressions: list[Expr | None] = expressions or self.parse()
+        for expression in expressions:
+            if not isinstance(expression, ALLOWED_ROOT_STATEMENTS):
+                raise ValueError(f"SQL Expression contains forbidden statement: {type(expression).__name__}")
+            for node in expression.walk():
+                if isinstance(node, FORBIDDEN_EXPRESSIONS):
+                    raise ValueError(f"SQL Expression contains forbidden statement: {type(node).__name__}")
+
+    def transpile(self, expressions: list[Expr] | None = None) -> str:
+        expressions: list[Expr | None] = expressions or self.parse()
+        self.validate_safe_query(expressions)
+        return ";\n".join(expression.sql(dialect=self._dialect) for expression in expressions if expression)
+

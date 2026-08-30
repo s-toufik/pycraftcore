@@ -1,0 +1,21 @@
+app_configuration:
+  env: ${oc.env:APP_ENV,dev}
+  run: async
+
+  connector:
+    api:
+      alpha_vantage: ${connector.alpha_vantage}
+      twelve_data: ${connector.twelve_data}
+    file:
+      local_fs: ${connector.local_fs}
+    database:
+      postgres: ${connector.postgres}
+    telemetry:
+      open_telemetry: ${connector.telemetry}
+
+  operation:
+    alpha_vantage_stock: ${operation.alpha_vantage_stock}
+    twelve_data_stock: ${operation.twelve_data_stock}
+
+  cronjob:
+    - ${cronjob.get_alpha_vantage_stock}
