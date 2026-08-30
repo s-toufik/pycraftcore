@@ -7,4 +7,4 @@ from .auth_type import AuthType
 class TokenAuth:
     key_name: str
     key_value: str
-    type: AuthType = field(default_factory=AuthType.token)
+    type: AuthType = field(default=AuthType.token)

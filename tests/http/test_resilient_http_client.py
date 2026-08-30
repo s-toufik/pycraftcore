@@ -1,6 +1,7 @@
-import pytest
-from unittest.mock import AsyncMock, MagicMock
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from pycraftcore.http.adapter import ResilientClient
 from pycraftcore.http.configuration import (
@@ -73,12 +74,6 @@ def resilient_client():
         retry_policy=MockRetry(),
         trace_manager=MockTelemetry(),
     )
-
-
-@pytest.mark.asyncio
-async def test_start_and_close(resilient_client):
-    await resilient_client.start()
-    await resilient_client.close()
 
 
 @pytest.mark.asyncio

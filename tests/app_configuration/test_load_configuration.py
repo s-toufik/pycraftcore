@@ -1,14 +1,15 @@
 import threading
 from unittest.mock import create_autospec
+
 import pytest
 
+from pycraftcore.app_configuration import (
+    ConfigurationReader,
+)
 from pycraftcore.app_configuration.adapter.load_configuration import (
     LoadConfiguration,
 )
 from pycraftcore.app_configuration.model.configuration import AppConfiguration
-from pycraftcore.app_configuration import (
-    ConfigurationReader,
-)
 from pycraftcore.logger.port import Logger
 
 

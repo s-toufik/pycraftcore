@@ -7,4 +7,4 @@ from .auth_type import AuthType
 class BasicAuth:
     username: str
     password: str
-    type: AuthType = field(default_factory=AuthType.basic)
+    type: AuthType = field(default=AuthType.basic)

@@ -1,7 +1,7 @@
 import asyncio
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, patch
 
 from pycraftcore.http.adapter import CircuitBreakerPolicy
 from pycraftcore.http.configuration import (
@@ -169,3 +169,32 @@ async def test_lock_prevents_double_half_open_transition():
 
     assert probe_entry_count == 2
     assert cb._state == CircuitState.CLOSED
+
+
+def test_settings_property_returns_configured_settings():
+    settings = CircuitBreakerSettings(failure_threshold=5)
+    policy = CircuitBreakerPolicy(settings)
+
+    assert policy.settings is settings
+
+
+def test_defaults_settings_when_none_provided():
+    policy = CircuitBreakerPolicy()
+
+    assert isinstance(policy.settings, CircuitBreakerSettings)
+
+
+def test_last_exception_is_none_before_any_failure():
+    policy = CircuitBreakerPolicy()
+
+    assert policy.last_exception is None
+
+
+@pytest.mark.asyncio
+async def test_last_exception_is_set_after_failure():
+    policy = CircuitBreakerPolicy(CircuitBreakerSettings(failure_threshold=2))
+
+    with pytest.raises(ValueError):
+        await policy.call(AsyncMock(side_effect=ValueError("boom")))
+
+    assert isinstance(policy.last_exception, ValueError)

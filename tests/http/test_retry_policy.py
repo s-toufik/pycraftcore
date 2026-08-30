@@ -1,5 +1,6 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch
 
 from pycraftcore.http.adapter.retry_policy import RetryPolicy
 from pycraftcore.http.configuration.retry_configuration import RetrySettings
@@ -61,9 +62,8 @@ async def test_retry_policy_fails_after_retries():
     mock_func = AsyncMock(side_effect=Exception("boom"))
     wrapped = policy.decorator(mock_func)
 
-    with patch("asyncio.sleep", new=AsyncMock()):
-        with pytest.raises(Exception, match="boom"):
-            await wrapped()
+    with patch("asyncio.sleep", new=AsyncMock()), pytest.raises(Exception, match="boom"):
+        await wrapped()
 
     assert mock_func.await_count == 3
 
@@ -75,9 +75,8 @@ async def test_retry_policy_does_not_retry_unhandled_exception():
 
     mock_func = AsyncMock(side_effect=KeyError("stop"))
     wrapped = policy.decorator(mock_func)
-    with patch("asyncio.sleep", new=AsyncMock()):
-        with pytest.raises(KeyError):
-            await wrapped()
+    with patch("asyncio.sleep", new=AsyncMock()), pytest.raises(KeyError):
+        await wrapped()
 
     assert mock_func.await_count == 1
 
@@ -112,3 +111,31 @@ async def test_retry_policy_zero_retries_failure():
         await wrapped()
 
     mock_func.assert_awaited_once()
+
+
+def test_retry_policy_exposes_settings():
+    settings = RetrySettings(retry_count=2, retry_delay=0.1, retry_on=(Exception,))
+    policy = RetryPolicy(settings)
+
+    assert policy.settings is settings
+
+
+def test_retry_policy_defaults_settings_when_none_provided():
+    policy = RetryPolicy()
+
+    assert isinstance(policy.settings, RetrySettings)
+
+
+@pytest.mark.asyncio
+async def test_retry_policy_logs_each_retry_attempt():
+    settings = RetrySettings(retry_count=2, retry_delay=0.1, retry_on=(ValueError,))
+    logger = MagicMock()
+    policy = RetryPolicy(settings, logger=logger)
+
+    mock_func = AsyncMock(side_effect=[ValueError("fail"), "ok"])
+    wrapped = policy.decorator(mock_func)
+
+    with patch("asyncio.sleep", new=AsyncMock()):
+        await wrapped()
+
+    logger.warning.assert_called_once()

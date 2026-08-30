@@ -1,9 +1,9 @@
 import ssl
+from collections.abc import Mapping
+from typing import Any, Self
 
 import aiohttp
 import orjson
-
-from typing import Any, Optional, Mapping
 
 from pycraftcore.http.configuration.http_client_configuration import HttpClientSettings
 from pycraftcore.http.enum.http_method import HttpMethod
@@ -23,9 +23,9 @@ class AioHttpClient:
         method: str,
         endpoint: str,
         *,
-        params: Optional[Mapping[str, Any]] = None,
-        json: Optional[Mapping[str, Any]] = None,
-        headers: Optional[Mapping[str, str]] = None,
+        params: Mapping[str, Any] | None = None,
+        json: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> Any:
 
         url: str = self._build_url(endpoint)
@@ -43,8 +43,8 @@ class AioHttpClient:
         self,
         endpoint: str,
         *,
-        params: Optional[Mapping[str, Any]] = None,
-        headers: Optional[Mapping[str, str]] = None,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> Any:
 
         return await self._request(HttpMethod.GET.value, endpoint, params=params, headers=headers)
@@ -53,8 +53,8 @@ class AioHttpClient:
         self,
         endpoint: str,
         *,
-        body: Optional[Mapping[str, Any]] = None,
-        headers: Optional[Mapping[str, str]] = None,
+        body: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> Any:
 
         return await self._request(HttpMethod.POST.value, endpoint, json=body, headers=headers)
@@ -72,12 +72,12 @@ class AioHttpClientFactory:
 
         self._http_client_settings: HttpClientSettings = http_client_settings or HttpClientSettings()
         self._timeout: aiohttp.ClientTimeout = aiohttp.ClientTimeout(total=timeout or self._http_client_settings.limits.timeout)
-        self._connector: Optional[aiohttp.BaseConnector] = connector
+        self._connector: aiohttp.BaseConnector | None = connector
         self._owns_connector: bool = connector is None
 
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
 
-    async def __aenter__(self) -> AioHttpClientFactory:
+    async def __aenter__(self) -> Self:
         await self.start()
         return self
 
@@ -118,7 +118,11 @@ class AioHttpClientFactory:
             self._connector = None
 
     async def _start_session(self) -> None:
-        self._session = aiohttp.ClientSession(timeout=self._timeout, connector=self._connector)
+        self._session = aiohttp.ClientSession(
+            timeout=self._timeout,
+            connector=self._connector,
+            connector_owner=self._owns_connector,
+        )
 
     async def _start_connector(self) -> None:
         if self._owns_connector and self._connector is None:

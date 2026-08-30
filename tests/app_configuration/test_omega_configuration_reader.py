@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from omegaconf import DictConfig, OmegaConf
 
@@ -16,13 +16,13 @@ from pycraftcore.app_configuration.model.configuration import AppConfiguration
 
 
 @patch(
-    "pricelab_core.infrastructure.app_configuration.adapter.omega_configuration_reader.MapperDomainSchema.map"
+    "pycraftcore.app_configuration.adapter.omega_configuration_reader.MapperDomainSchema.map"
 )
 @patch(
-    "pricelab_core.infrastructure.app_configuration.adapter.omega_configuration_reader.AppConfigurationSchema"
+    "pycraftcore.app_configuration.adapter.omega_configuration_reader.AppConfigurationSchema"
 )
 @patch(
-    "pricelab_core.infrastructure.app_configuration.adapter.omega_configuration_reader.OmegaConf.to_container"
+    "pycraftcore.app_configuration.adapter.omega_configuration_reader.OmegaConf.to_container"
 )
 def test_read_orchestration(mock_to_container, mock_schema, mock_mapper):
     env = RunTypeEnvironment.production
@@ -87,3 +87,21 @@ def test_read_validation_schema():
         assert isinstance(result, AppConfiguration)
         assert result.env == RunTypeEnvironment.debug
         assert result.run == RunTypeApplication.asynchronous
+
+
+def test_omega_read_merges_real_yml_files_from_disk(tmp_path):
+    env_dir = tmp_path / "debug"
+    (env_dir / "connector").mkdir(parents=True)
+    (env_dir / "operation").mkdir(parents=True)
+    (env_dir / "cronjob").mkdir(parents=True)
+    (env_dir / "connector" / "db.yml").write_text("connector:\n  database:\n    users: {}\n")
+    (tmp_path / "root.yml").write_text(
+        "app_configuration:\n  env: debug\n  run: async\n  connector: {}\n  operation: {}\n  cronjob: []\n"
+    )
+
+    reader = OmegaConfigurationReader(RunTypeEnvironment.debug, tmp_path)
+
+    result = reader.read()
+
+    assert isinstance(result, AppConfiguration)
+    assert result.env == RunTypeEnvironment.debug

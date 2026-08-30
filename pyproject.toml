@@ -37,6 +37,7 @@ dependencies = [
     "aiobreaker",
     "aiosqlite",
     "sqlglot",
+    "starlette",
 ]
 
 [dependency-groups]
@@ -44,6 +45,7 @@ dev = [
     "pytest",
     "hypothesis>=6.151.9",
     "pytest-asyncio",
+    "pytest-cov>=7.1.0",
     "ruff",
     "scipy-stubs>=1.17.1.3",
     "Pyright",

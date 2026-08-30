@@ -1,90 +1,140 @@
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
-import pytest
 import orjson
+import pytest
 
-from unittest.mock import AsyncMock, MagicMock
-
-from pycraftcore.http.adapter import AioHttpClient
+from pycraftcore.http.adapter import AioHttpClient, AioHttpClientFactory
+from pycraftcore.http.configuration import HttpClientSettings
 from pycraftcore.http.enum import HttpMethod
 from pycraftcore.http.port import AsyncHttpClient
 
 
 def test_build_url_normalization():
-    client = AioHttpClient(base_url="https://api.test.com/")
+    client = AioHttpClient(base_url="https://api.test.com/", session=MagicMock())
 
     assert client._build_url("/users") == "https://api.test.com/users"
     assert client._build_url("users") == "https://api.test.com/users"
 
 
-def test_ensure_session_raises_without_start():
-    client = AioHttpClient(base_url="https://api.test.com")
+def test_build_url_without_base_url():
+    client = AioHttpClient(base_url="", session=MagicMock())
 
-    with pytest.raises(RuntimeError, match="Client session is not started"):
-        client._ensure_session()
-
-
-@pytest.mark.asyncio
-async def test_start_creates_session():
-    client = AioHttpClient(base_url="https://api.test.com")
-
-    await client.start()
-
-    assert isinstance(client._ensure_session(), aiohttp.ClientSession)
-
-    await client.close()
+    assert client._build_url("/users") == "users"
 
 
 @pytest.mark.asyncio
-async def test_close_closes_owned_session():
-    client = AioHttpClient(base_url="https://api.test.com")
+async def test_factory_ensure_session_raises_without_start():
+    factory = AioHttpClientFactory()
 
-    await client.start()
-    session = client._ensure_session()
+    with pytest.raises(RuntimeError, match="Factory session is not started"):
+        factory.create_client()
 
-    await client.close()
 
-    assert client._session is None
+@pytest.mark.asyncio
+async def test_factory_start_creates_session_and_client():
+    factory = AioHttpClientFactory()
+
+    await factory.start()
+    client = factory.create_client()
+
+    assert isinstance(client, AioHttpClient)
+    assert isinstance(factory._session, aiohttp.ClientSession)
+
+    await factory.close()
+
+
+@pytest.mark.asyncio
+async def test_factory_close_closes_owned_session():
+    factory = AioHttpClientFactory()
+
+    await factory.start()
+    session = factory._session
+
+    await factory.close()
+
+    assert factory._session is None
     assert session.closed is True
 
 
 @pytest.mark.asyncio
-async def test_close_does_not_close_external_session():
-    external_session = AsyncMock()
-    external_session.closed = False
-    external_session.close = AsyncMock()
-
-    client = AioHttpClient(
-        base_url="https://api.test.com",
-        session=external_session,
-    )
-
-    await client.close()
-
-    external_session.close.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_close_does_not_close_external_connector():
-    external_connector = AsyncMock()
+async def test_factory_close_does_not_close_external_connector():
+    # A bare AsyncMock() would make every auto-generated child attribute (e.g. `._loop`,
+    # which aiohttp.ClientSession reads synchronously) an AsyncMock too, so calling it
+    # produces an unawaited coroutine. MagicMock keeps children sync by default; only
+    # `.close` needs to be async here.
+    external_connector = MagicMock()
     external_connector.closed = False
     external_connector.close = AsyncMock()
 
-    client = AioHttpClient(
-        base_url="https://api.test.com",
-        connector=external_connector,
-    )
+    factory = AioHttpClientFactory(connector=external_connector)
 
-    await client.close()
+    await factory.start()
+    await factory.close()
 
     external_connector.close.assert_not_called()
+    assert factory._connector is external_connector
+
+
+@pytest.mark.asyncio
+async def test_factory_close_closes_owned_connector():
+    factory = AioHttpClientFactory()
+
+    await factory.start()
+    connector = factory._connector
+
+    await factory.close()
+
+    assert connector.closed is True
+    assert factory._connector is None
+
+
+@pytest.mark.asyncio
+async def test_factory_context_manager_starts_and_closes():
+    async with AioHttpClientFactory() as factory:
+        client = factory.create_client()
+        assert isinstance(client, AioHttpClient)
+
+    assert factory._session is None
+
+
+def test_factory_resilient_client_instance_not_implemented():
+    factory = AioHttpClientFactory()
+
+    with pytest.raises(NotImplementedError):
+        _ = factory.resilient_client_instance
+
+
+def test_factory_create_ssl_from_certificate_returns_false_without_certificate():
+    factory = AioHttpClientFactory()
+
+    assert factory._create_ssl_from_certificate() is False
+
+
+def test_factory_create_ssl_from_certificate_builds_context(tmp_path):
+    cert_path = tmp_path / "cert.pem"
+    cert_path.write_text("fake")
+    settings = HttpClientSettings()
+    settings.security.certificate = str(cert_path)
+    settings.security.tls_cipher_spec = "TLS_AES_256_GCM_SHA384"
+    factory = AioHttpClientFactory(http_client_settings=settings)
+
+    with patch("ssl.create_default_context") as mock_ctx_factory:
+        mock_ctx = MagicMock()
+        mock_ctx_factory.return_value = mock_ctx
+
+        result = factory._create_ssl_from_certificate()
+
+        mock_ctx.load_verify_locations.assert_called_once_with(cafile=str(cert_path))
+        mock_ctx.set_ciphers.assert_called_once_with("TLS_AES_256_GCM_SHA384")
+        assert result is mock_ctx
 
 
 @pytest.mark.asyncio
 async def test_request_json_response():
-    client = AioHttpClient(base_url="https://api.test.com")
-    await client.start()
+    session = MagicMock()
+    client = AioHttpClient(base_url="https://api.test.com", session=session)
 
     mock_response = AsyncMock()
     mock_response.headers = {"Content-Type": "application/json"}
@@ -94,7 +144,7 @@ async def test_request_json_response():
     mock_ctx = AsyncMock()
     mock_ctx.__aenter__.return_value = mock_response
 
-    client._session.request = MagicMock(return_value=mock_ctx)
+    session.request = MagicMock(return_value=mock_ctx)
 
     result = await client._request("GET", "/health")
     assert result == {"ok": True}
@@ -103,7 +153,28 @@ async def test_request_json_response():
     result = await client.post(endpoint="/health")
     assert result == {"ok": True}
 
-    await client.close()
+
+@pytest.mark.asyncio
+async def test_request_text_response():
+    session = MagicMock()
+    client = AioHttpClient(base_url="https://api.test.com", session=session)
+
+    mock_response = AsyncMock()
+    mock_response.headers = {"Content-Type": "text/plain"}
+    mock_response.text = AsyncMock(return_value="healthy")
+    mock_response.raise_for_status = MagicMock()
+
+    mock_ctx = AsyncMock()
+    mock_ctx.__aenter__.return_value = mock_response
+
+    session.request = MagicMock(return_value=mock_ctx)
+
+    result = await client._request("GET", "/health")
+    assert result == "healthy"
+    result = await client.get("/health")
+    assert result == "healthy"
+    result = await client.post("/health")
+    assert result == "healthy"
 
 
 @pytest.mark.asyncio
@@ -132,41 +203,16 @@ async def test_http_client_protocol():
     await client.close()
 
 
-@pytest.mark.asyncio
-async def test_request_text_response():
-    client = AioHttpClient(base_url="https://api.test.com")
-    await client.start()
-
-    mock_response = AsyncMock()
-    mock_response.headers = {"Content-Type": "text/plain"}
-    mock_response.text = AsyncMock(return_value="healthy")
-    mock_response.raise_for_status = MagicMock()
-
-    mock_ctx = AsyncMock()
-    mock_ctx.__aenter__.return_value = mock_response
-
-    client._session.request = MagicMock(return_value=mock_ctx)
-
-    result = await client._request("GET", "/health")
-    assert result == "healthy"
-    result = await client.get("/health")
-    assert result == "healthy"
-    result = await client.post("/health")
-    assert result == "healthy"
-
-    await client.close()
-
-
 def test_slots_prevents_dynamic_attributes():
-    client = AioHttpClient(base_url="https://api.test.com")
+    client = AioHttpClient(base_url="https://api.test.com", session=MagicMock())
 
     with pytest.raises(AttributeError):
-        client.new_attribute = "fail"  # noqa
+        client.new_attribute = "fail"
 
 
 @pytest.mark.asyncio
 async def test_post_delegation():
-    client = AioHttpClient(base_url="https://api.test.com")
+    client = AioHttpClient(base_url="https://api.test.com", session=MagicMock())
     mock_request = AsyncMock(return_value={"created": True})
     AioHttpClient._request = mock_request
 

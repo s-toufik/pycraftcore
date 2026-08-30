@@ -2,7 +2,7 @@ from typing import Sequence, Any
 
 import numpy as np
 
-from pycraftcore.domain.base.const_typing import Numeric
+from pycraftcore.computation_engine.const_typing import Numeric
 
 
 class NumPyArithmeticOperation:

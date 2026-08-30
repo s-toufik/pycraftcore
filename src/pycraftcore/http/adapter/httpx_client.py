@@ -1,14 +1,28 @@
 import ssl
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import timedelta
 from functools import cached_property
 from types import CoroutineType
-from typing import Optional, Any, Mapping
+from typing import Any
 
 import orjson
-from aiobreaker import CircuitBreakerListener, CircuitBreaker, CircuitBreakerState
-from httpx import AsyncBaseTransport, AsyncClient, Limits, Timeout, AsyncHTTPTransport, Request, Response
-from tenacity import AsyncRetrying, retry_if_exception_type, stop_after_attempt, wait_exponential, RetryCallState
+from aiobreaker import CircuitBreaker, CircuitBreakerListener, CircuitBreakerState
+from httpx import (
+    AsyncBaseTransport,
+    AsyncClient,
+    AsyncHTTPTransport,
+    Limits,
+    Request,
+    Response,
+    Timeout,
+)
+from tenacity import (
+    AsyncRetrying,
+    RetryCallState,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from pycraftcore.http.configuration.http_client_configuration import HttpClientSettings
 from pycraftcore.http.enum.http_method import HttpMethod
@@ -18,11 +32,11 @@ from pycraftcore.logger.port.logger import Logger
 
 class HttpxClientFactory:
     def __init__(self, http_client_settings: HttpClientSettings | None = None,
-                 logger: Optional[Logger] = None,
-                 http_transport: Optional[AsyncBaseTransport] = None) -> None:
+                 logger: Logger | None = None,
+                 http_transport: AsyncBaseTransport | None = None) -> None:
         self._http_client_settings: HttpClientSettings = http_client_settings or HttpClientSettings()
-        self._logger: Optional[Logger] = logger
-        self._http_transport: Optional[AsyncBaseTransport] = http_transport
+        self._logger: Logger | None = logger
+        self._http_transport: AsyncBaseTransport | None = http_transport
 
     async def __aenter__(self) -> HttpxClientFactory:
         _ = self._client_instance
@@ -148,7 +162,7 @@ class BreakerLogger(CircuitBreakerListener):
         if self._logger:
             self._logger.warning(f"Circuit breaker failure {breaker.fail_counter}/{breaker.fail_max} recorded: {exception!r}")
 
-    def success(self, breaker: 'CircuitBreaker') -> None:
+    def success(self, breaker: CircuitBreaker) -> None:
         self._last_exception: Exception = None
 
     def state_change(self, breaker: CircuitBreaker, old: CircuitBreakerState, new: CircuitBreakerState) -> None:

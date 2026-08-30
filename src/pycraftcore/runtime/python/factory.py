@@ -1,5 +1,4 @@
 from string import Template
-from typing import Optional
 
 from pycraftcore.runtime.code import Code
 from pycraftcore.runtime.python.adapter import SafeCode
@@ -7,13 +6,13 @@ from pycraftcore.runtime.python.schema import SafeCodeSettings
 
 
 class SafeCodeFactory:
-    def __init__(self, settings: SafeCodeSettings | None) -> None:
+    def __init__(self, settings: SafeCodeSettings | None = None) -> None:
         self._settings = settings or SafeCodeSettings()
 
     def __call__(
         self,
         code: str,
-        code_template: Optional[Template] = None
+        code_template: Template | None = None
     ) -> Code:
         return SafeCode(
             code=code,

@@ -1,6 +1,6 @@
 from typing import Sequence, Protocol
 
-from pycraftcore.domain.base.const_typing import Numeric, Kind
+from pycraftcore.computation_engine.const_typing import Numeric, Kind
 
 
 class CalculusOperation(Protocol):

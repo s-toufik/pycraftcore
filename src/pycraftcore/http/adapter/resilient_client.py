@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from typing import ParamSpec, Final, Any
+from typing import Any, Final, ParamSpec
 
 from pycraftcore.http.enum.http_method import HttpMethod
 from pycraftcore.http.port.async_circuit_breaker import AsyncCircuitBreaker

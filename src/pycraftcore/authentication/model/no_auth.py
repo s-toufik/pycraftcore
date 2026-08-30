@@ -5,4 +5,4 @@ from .auth_type import AuthType
 
 @dataclass(frozen=True, slots=True)
 class NoAuth:
-    type: AuthType = field(default_factory=AuthType.none)
+    type: AuthType = field(default=AuthType.none)

@@ -3,7 +3,7 @@ from typing import Sequence, Any
 import numpy as np
 from scipy import interpolate, integrate
 
-from pycraftcore.domain.base.const_typing import Numeric, Kind
+from pycraftcore.computation_engine.const_typing import Numeric, Kind
 
 
 class ScipyCalculusOperation:

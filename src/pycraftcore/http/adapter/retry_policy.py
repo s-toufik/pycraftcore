@@ -1,6 +1,7 @@
 import asyncio
 import functools
-from typing import ParamSpec, TypeVar, Callable, Awaitable, Optional
+from collections.abc import Awaitable, Callable
+from typing import ParamSpec, TypeVar
 
 from pycraftcore.http.configuration.retry_configuration import RetrySettings
 from pycraftcore.logger.port.logger import Logger
@@ -10,7 +11,7 @@ R = TypeVar("R")
 
 
 class RetryPolicy:
-    def __init__(self, settings: Optional[RetrySettings] = None, logger: Logger | None= None):
+    def __init__(self, settings: RetrySettings | None = None, logger: Logger | None= None):
         self._settings = settings or RetrySettings()
         self._logger = logger
 

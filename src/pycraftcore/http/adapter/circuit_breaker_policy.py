@@ -1,6 +1,6 @@
 import time
 from asyncio import Lock
-from typing import ParamSpec, Optional
+from typing import ParamSpec
 
 from pycraftcore.http.configuration.circuite_breaker_configuration import (
     CircuitBreakerSettings,
@@ -14,7 +14,7 @@ P = ParamSpec("P")
 
 
 class CircuitBreakerPolicy:
-    def __init__(self, settings: Optional[CircuitBreakerSettings] = None):
+    def __init__(self, settings: CircuitBreakerSettings | None = None):
 
         self._settings = settings or CircuitBreakerSettings()
         self._state: CircuitState = CircuitState.CLOSED
