@@ -1,42 +1,38 @@
 # pycraftcore
 
-`pycraftcore` is a reusable technical infrastructure library for Python applications: configuration loading, HTTP
-clients with retries/circuit-breaking/tracing, a pooled async SQLite repository, a sandboxed Python code runner, safe
-SQL validation, serialization, and a handful of other adapters — all built as small, swappable ports/adapters rather
-than a framework.
+`pycraftcore` is a reusable technical infrastructure library for Python applications: configuration, resilient HTTP
+clients, a pooled async SQLite repository, a sandboxed Python code runner, safe SQL validation, serialization, and a
+handful of other adapters — small, swappable building blocks rather than a framework.
 
 **Design principles:** Modularity · Reusability · Maintainability
-
-Every module follows the same shape: a `port/` package with `Protocol` interfaces and an `adapter/` package with one
-or more concrete implementations, so consumers depend on the port, not the adapter.
 
 ---
 
 ## Table of Contents
 
-- [Components](#components)
+- [Functionality](#functionality)
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Development](#development)
 
 ---
 
-## Components
+## Functionality
 
-| Module | Package | Description |
+| Module | Package | What it gives you |
 |---|---|---|
-| Configuration Management | `application_configuration` | Environment-driven YAML config (connector/operation/cronjob), `${oc.env:...}` injection, typed/validated models |
-| Authentication | `application_configuration` | Typed auth models (none / basic / token) shared across connector configs |
-| Logging | `logger` | Singleton structured logger over loguru, behind a `Logger` port |
-| Telemetry & Observability | `telemetry` | OpenTelemetry-backed tracing: span decorator, request-id enrichment, console or OTLP export |
-| HTTP Client Utilities | `http` | `aiohttp`/`httpx` clients behind a common port, retry policy, circuit breaker, and a `ResilientClient` composing all three with tracing |
-| Repository / SQLite | `repository` | Async SQLite repository backed by a real connection pool (WAL mode, `busy_timeout`) — not just an async-wrapped single connection |
-| Query Language / SQL Safety | `query_language` | `sqlglot`-based parser that rejects any non-read-only statement anywhere in the parsed tree, including nested |
-| Runtime / Sandboxed Execution | `runtime` | Runs arbitrary Python in a separate OS process with an import allowlist, memory/CPU limits, and a timeout |
-| Serialization | `serialization` | JSON, dict, and binary (msgpack) serialization for dataclasses, backed by pydantic validation |
-| Scientific computation engine | `computation` | NumPy/SciPy-backed arithmetic (log returns, rolling average/stddev) and calculus (integration, interpolation) |
-| File handler | `file_handler` | Extension-based read/write strategy (currently YAML), pluggable for more formats |
-| Profiler | `profiler` | `pyinstrument`-based async function profiling decorator |
+| Configuration Management | `application_configuration` | Environment-driven YAML configuration for connectors and operations, validated and typed |
+| Authentication | `application_configuration` | Shared auth models (none / basic / token) for any connector |
+| Logging | `logger` | Structured application logging |
+| Telemetry & Observability | `telemetry` | Distributed tracing, exportable to console or an OTLP collector |
+| HTTP Client Utilities | `http` | Resilient HTTP client with retries, circuit breaking, and tracing |
+| Repository / SQLite | `repository` | Async SQLite repository with real connection pooling for concurrent access |
+| Query Language / SQL Safety | `query_language` | Validates that a SQL statement is read-only before it reaches a database |
+| Runtime / Sandboxed Execution | `runtime` | Runs untrusted Python code in an isolated process with resource limits |
+| Serialization | `serialization` | JSON, dict, and binary (msgpack) serialization for dataclasses |
+| Scientific computation engine | `computation` | Financial arithmetic and calculus (integration, interpolation) |
+| File handler | `file_handler` | Read/write files by extension, pluggable for new formats |
+| Profiler | `profiler` | Async function profiling decorator |
 
 ---
 
@@ -97,31 +93,67 @@ connector:
       key_value: ${oc.env:connector_api_key}
 ```
 
-A database connector additionally takes `engine`, `host`, `port`, `default_name`, and a `pool` block controlling how
-many pooled connections the repository opens. An `operation/<tag>.yml` references a connector by tag and adds
-`endpoint`, `method`, and `parameters` — see `pycraftcore.application_configuration.model` for the full schema.
+**Operation example** (`operation/<tag>.yml`) — references a connector by tag:
 
-**Loading it:**
+```yaml
+operation:
+  <operation_tag>:
+    name: <operation name>
+    type: api
+    connector: ${connector.<connector_tag>}
+    endpoint: /<path>
+    method: GET
+    parameters:
+      <param>: <value>
+```
+
+**Root example** (`root.yml`) — wires everything together for a given environment:
+
+```yaml
+application_configuration:
+  env: ${oc.env:APP_ENV,debug}
+  run: async
+
+  connector:
+    api:
+      <connector_tag>: ${connector.<connector_tag>}
+    file:
+      <connector_tag>: ${connector.<connector_tag>}
+    database:
+      <connector_tag>: ${connector.<connector_tag>}
+    telemetry:
+      <connector_tag>: ${connector.<connector_tag>}
+    
+  operation:
+    <operation_tag>: ${operation.<operation_tag>}
+    # ...
+```
+
+Connectors and operations both declare a `type`, which determines which fields they take and which concrete object
+they load as.
+
+**Using it in code:**
 
 ```python
 from pathlib import Path
 
-from pycraftcore.application_configuration.adapter.load_application_configuration import (
-    LoadApplicationConfiguration,
-)
-from pycraftcore.application_configuration.adapter.omega_configuration_reader import (
-    OmegaConfigurationReader,
-)
-from pycraftcore.application_configuration.enum.run_type_environment import (
-    RunTypeEnvironment,
-)
+from pycraftcore.application_configuration.adapter.load_application_configuration import LoadApplicationConfiguration
+from pycraftcore.application_configuration.adapter.omega_configuration_reader import OmegaConfigurationReader
+from pycraftcore.application_configuration.enum.run_type_environment import RunTypeEnvironment
 from pycraftcore.logger.adapter.loguru_logger import LoguruLogger
 
 reader = OmegaConfigurationReader(RunTypeEnvironment.deploy, Path("config"))
 loader = LoadApplicationConfiguration(reader, LoguruLogger())
 
-config = loader.load()  # re-reads and validates every call; raises on failure (after logging)
+config = loader.load()
+
+connector = config.connector.api("<connector_tag>")   # ApiConnector
+operation = config.operation.api("<operation_tag>")   # ApiOperation
 ```
+
+`config.connector`/`config.operation` return the concrete connector/operation type for a given tag (`.api()`,
+`.database()`, `.file()`, `.telemetry()` where applicable) instead of a raw dict — see
+`pycraftcore.application_configuration` for the full API.
 
 ---
 
@@ -149,9 +181,9 @@ uv run pre-commit run --all-files --hook-stage pre-commit
 ```bash
 make install_dev   # uv sync --group dev
 make test           # uv run pytest
-make lint            # uv run ruff check 
-make format          # uv run ruff format 
-make typecheck           # uv run ty  (strict mode)
+make lint            # uv run ruff check
+make format          # uv run ruff format
+make typecheck        # uv run ty check (strict mode)
 ```
 
 Run `pytest --cov=pycraftcore --cov-report=term-missing` for a coverage breakdown by module.

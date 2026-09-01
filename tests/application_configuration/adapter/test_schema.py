@@ -26,5 +26,5 @@ def test_map_converts_schema_into_domain_model():
     assert isinstance(result, ApplicationConfiguration)
     assert result.env == RunTypeEnvironment.debug
     assert result.run == RunTypeApplication.asynchronous
-    assert result.connector == {}
-    assert result.operation == {}
+    assert result.connector.by_type == {}
+    assert result.operation.by_name == {}
