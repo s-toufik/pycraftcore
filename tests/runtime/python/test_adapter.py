@@ -1,5 +1,6 @@
 import asyncio
 import os
+import subprocess
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -26,6 +27,24 @@ async def test_execute_runs_real_sandboxed_code_and_returns_json_result():
 
     assert output.stderr == ""
     assert '"result": 4' in output.stdout
+
+
+@pytest.mark.asyncio
+async def test_execute_allows_defining_classes_in_sandboxed_code():
+    safe_code = SafeCode(
+        code=(
+            "class Point:\n"
+            "    def __init__(self, x):\n"
+            "        self.x = x\n"
+            "result = Point(3).x\n"
+        ),
+        code_timeout=10,
+    )
+
+    output = await safe_code.execute()
+
+    assert output.stderr == ""
+    assert '"result": 3' in output.stdout
 
 
 @pytest.mark.asyncio
@@ -86,11 +105,7 @@ async def test_execute_returns_subprocess_error_message_on_unexpected_exception(
 
 
 @pytest.mark.asyncio
-async def test_execute_on_nonzero_returncode_embeds_stderr_text_not_returncode():
-    """Regression test documenting a real bug: the non-zero-returncode branch formats
-    `f"Process exited with code {stderr}."`, embedding stderr text where the
-    numeric return code was almost certainly intended. Mirrors the same
-    documented behavior in the agentic project's copy of this adapter."""
+async def test_execute_on_nonzero_returncode_uses_stderr_text_when_present():
     safe_code = SafeCode(code="result = 1")
     fake_proc = MagicMock(
         returncode=1,
@@ -103,7 +118,159 @@ async def test_execute_on_nonzero_returncode_embeds_stderr_text_not_returncode()
     ):
         output = await safe_code.execute()
 
-    assert output.stderr == "Process exited with code Traceback (most recent call last)."
+    assert output.stderr == "Traceback (most recent call last)"
+
+
+@pytest.mark.asyncio
+async def test_execute_on_nonzero_returncode_falls_back_to_returncode_when_stderr_empty():
+    safe_code = SafeCode(code="result = 1")
+    fake_proc = MagicMock(
+        returncode=7,
+        communicate=AsyncMock(return_value=(b"", b"")),
+    )
+
+    with patch(
+        "pycraftcore.runtime.python.adapter.asyncio.create_subprocess_exec",
+        AsyncMock(return_value=fake_proc),
+    ):
+        output = await safe_code.execute()
+
+    assert output.stderr == "Process exited with code 7."
+
+
+@pytest.mark.asyncio
+async def test_execute_on_nonzero_returncode_preserves_partial_stdout():
+    safe_code = SafeCode(code="result = 1")
+    fake_proc = MagicMock(
+        returncode=1,
+        communicate=AsyncMock(return_value=(b"partial output", b"boom")),
+    )
+
+    with patch(
+        "pycraftcore.runtime.python.adapter.asyncio.create_subprocess_exec",
+        AsyncMock(return_value=fake_proc),
+    ):
+        output = await safe_code.execute()
+
+    assert output.stdout == "partial output"
+    assert output.stderr == "boom"
+
+
+def test_build_environment_does_not_leak_arbitrary_host_variables():
+    with patch.dict(
+        os.environ, {"PATH": "/usr/bin", "LANG": "en_US.UTF-8", "SECRET_TOKEN": "leak-me"}
+    ):
+        environment = SafeCode._build_environment()
+
+    assert environment == {
+        "PATH": "/usr/bin",
+        "LANG": "en_US.UTF-8",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1",
+        "PYTHON_COLORS": "0",
+    }
+    assert "SECRET_TOKEN" not in environment
+
+
+@pytest.mark.asyncio
+async def test_execute_passes_isolated_environment_to_subprocess():
+    safe_code = SafeCode(code="result = 1", code_timeout=10)
+    fake_proc = MagicMock(
+        returncode=0,
+        communicate=AsyncMock(return_value=(b'{"result": 1}', b"")),
+    )
+
+    with (
+        patch.dict(os.environ, {"SECRET_TOKEN": "leak-me"}),
+        patch(
+            "pycraftcore.runtime.python.adapter.asyncio.create_subprocess_exec",
+            AsyncMock(return_value=fake_proc),
+        ) as create_subprocess_exec,
+    ):
+        await safe_code.execute()
+
+    passed_env = create_subprocess_exec.call_args.kwargs["env"]
+    assert "SECRET_TOKEN" not in passed_env
+
+
+@pytest.mark.asyncio
+async def test_execute_falls_back_to_sync_subprocess_when_event_loop_lacks_support():
+    safe_code = SafeCode(code="result = 2 + 2", code_timeout=10)
+
+    with patch(
+        "pycraftcore.runtime.python.adapter.asyncio.create_subprocess_exec",
+        AsyncMock(side_effect=NotImplementedError("subprocess not supported")),
+    ):
+        output = await safe_code.execute()
+
+    assert output.stderr == ""
+    assert '"result": 4' in output.stdout
+
+
+@pytest.mark.asyncio
+async def test_execute_sync_fallback_does_not_swap_stdout_and_stderr():
+    safe_code = SafeCode(code="result = 1", code_timeout=10)
+    fake_completed_process = MagicMock(
+        returncode=0, stdout=b'{"result": 1}', stderr=b""
+    )
+
+    with (
+        patch(
+            "pycraftcore.runtime.python.adapter.asyncio.create_subprocess_exec",
+            AsyncMock(side_effect=NotImplementedError()),
+        ),
+        patch(
+            "pycraftcore.runtime.python.adapter.subprocess.run",
+            return_value=fake_completed_process,
+        ),
+    ):
+        output = await safe_code.execute()
+
+    assert output.stdout == '{"result": 1}'
+    assert output.stderr == ""
+
+
+@pytest.mark.asyncio
+async def test_execute_sync_fallback_on_nonzero_returncode_does_not_raise():
+    safe_code = SafeCode(code="raise ValueError(1)", code_timeout=10)
+    fake_completed_process = MagicMock(
+        returncode=1, stdout=b"", stderr=b"Traceback: ValueError"
+    )
+
+    with (
+        patch(
+            "pycraftcore.runtime.python.adapter.asyncio.create_subprocess_exec",
+            AsyncMock(side_effect=NotImplementedError()),
+        ),
+        patch(
+            "pycraftcore.runtime.python.adapter.subprocess.run",
+            return_value=fake_completed_process,
+        ),
+    ):
+        output = await safe_code.execute()
+
+    assert output.stdout == ""
+    assert output.stderr == "Traceback: ValueError"
+
+
+@pytest.mark.asyncio
+async def test_execute_sync_fallback_returns_timeout_message_on_timeout_expired():
+    safe_code = SafeCode(code="result = 1", code_timeout=5)
+
+    with (
+        patch(
+            "pycraftcore.runtime.python.adapter.asyncio.create_subprocess_exec",
+            AsyncMock(side_effect=NotImplementedError()),
+        ),
+        patch(
+            "pycraftcore.runtime.python.adapter.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="python", timeout=5),
+        ),
+    ):
+        output = await safe_code.execute()
+
+    assert output.stdout == ""
+    assert "timed out after 5s" in output.stderr
 
 
 @pytest.mark.asyncio

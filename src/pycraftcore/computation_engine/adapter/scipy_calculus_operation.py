@@ -14,8 +14,13 @@ class ScipyCalculusOperation:
         arr = self._to_array(sequence)
         return float(integrate.trapezoid(arr, dx=dx))
 
-    def interpolate(self, sequence: Sequence[Numeric], kind: Kind = "linear") -> Sequence[Numeric]:
+    def interpolate(
+        self, sequence: Sequence[Numeric], kind: Kind = "linear", num: int | None = None
+    ) -> Sequence[Numeric]:
         arr = self._to_array(sequence)
-        x = np.arange(len(arr))
+        if arr.size < 2:
+            raise ValueError("interpolation requires at least two points")
+
+        x = np.arange(arr.size)
         f = interpolate.interp1d(x, arr, kind=kind)
-        return f(x)
+        return f(np.linspace(0, arr.size - 1, num or arr.size))

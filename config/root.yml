@@ -1,4 +1,4 @@
-app_configuration:
+application_configuration:
   env: ${oc.env:APP_ENV,dev}
   run: async
 

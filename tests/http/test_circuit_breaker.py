@@ -171,6 +171,40 @@ async def test_lock_prevents_double_half_open_transition():
     assert cb._state == CircuitState.CLOSED
 
 
+@pytest.mark.asyncio
+async def test_half_open_failure_reopens_circuit_immediately_even_below_threshold():
+    settings = CircuitBreakerSettings(failure_threshold=5, recovery_timeout=10)
+    policy = CircuitBreakerPolicy(settings)
+    policy._clock = lambda: 1000
+
+    with pytest.raises(ValueError):
+        await policy.call(AsyncMock(side_effect=ValueError("fail")))
+
+    policy._state = CircuitState.HALF_OPEN
+    policy._success_counter = 1
+
+    with pytest.raises(ValueError):
+        await policy.call(AsyncMock(side_effect=ValueError("probe failed")))
+
+    assert policy.state == CircuitState.OPEN
+    assert policy._success_counter == 0
+    assert policy._failure_counter < settings.failure_threshold
+
+
+@pytest.mark.asyncio
+async def test_can_attempt_at_exact_recovery_timeout_boundary():
+    settings = CircuitBreakerSettings(failure_threshold=1, recovery_timeout=10)
+    policy = CircuitBreakerPolicy(settings)
+    policy._clock = lambda: 1000
+
+    with pytest.raises(ValueError):
+        await policy.call(AsyncMock(side_effect=ValueError("fail")))
+
+    policy._clock = lambda: 1010
+
+    assert policy._can_attempt() is True
+
+
 def test_settings_property_returns_configured_settings():
     settings = CircuitBreakerSettings(failure_threshold=5)
     policy = CircuitBreakerPolicy(settings)

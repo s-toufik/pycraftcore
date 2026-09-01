@@ -1,3 +1,4 @@
+from contextvars import Token
 from typing import Awaitable, Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -11,9 +12,9 @@ class RequestMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        token = request_context.set(request)
+        token: Token = request_context.set(request)
         try:
-            response = await call_next(request)
+            response: Response = await call_next(request)
         finally:
             request_context.reset(token)
 

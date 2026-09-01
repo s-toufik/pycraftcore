@@ -46,7 +46,7 @@ class CircuitBreakerPolicy:
 
         # OPEN
         if self._state == CircuitState.OPEN:
-            return self._clock() - self._last_failure_time > self._settings.recovery_timeout
+            return self._clock() - self._last_failure_time >= self._settings.recovery_timeout
 
         # HALF OPEN
         return True
@@ -70,6 +70,11 @@ class CircuitBreakerPolicy:
         self._last_failure_time = self._clock()
         self._last_exception = exception
 
+        if self._state == CircuitState.HALF_OPEN:
+            self._state = CircuitState.OPEN
+            self._success_counter = 0
+            return
+
         if self._failure_counter >= self._settings.failure_threshold:
             self._state = CircuitState.OPEN
 
@@ -81,6 +86,7 @@ class CircuitBreakerPolicy:
                 )
             if self._state == CircuitState.OPEN:
                 self._state = CircuitState.HALF_OPEN
+                self._success_counter = 0
 
         try:
             result = await func(*args, **kwargs)

@@ -1,6 +1,5 @@
 # Python-generated files
 __pycache__/
-uv.lock
 *.pyc
 *.py[oc]
 build/
@@ -20,3 +19,6 @@ wheels/
 
 # Dev
 .hypothesis
+
+# OS
+.DS_Store

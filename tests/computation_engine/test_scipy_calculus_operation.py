@@ -33,3 +33,14 @@ def test_interpolate_defaults_to_linear(op):
     result = op.interpolate([0.0, 2.0, 4.0])
 
     assert np.allclose(result, [0.0, 2.0, 4.0])
+
+
+def test_interpolate_with_num_resamples_to_requested_point_count(op):
+    result = op.interpolate([0.0, 4.0], kind="linear", num=5)
+
+    assert np.allclose(result, [0.0, 1.0, 2.0, 3.0, 4.0])
+
+
+def test_interpolate_rejects_sequence_shorter_than_two_points(op):
+    with pytest.raises(ValueError, match="at least two points"):
+        op.interpolate([1.0])

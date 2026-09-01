@@ -56,6 +56,28 @@ async def test_close_is_idempotent():
 
 
 @pytest.mark.asyncio
+async def test_close_does_not_instantiate_a_client_that_was_never_used():
+    factory = HttpxClientFactory()
+
+    await factory.close()
+
+    assert "_client_instance" not in factory.__dict__
+    assert "_resilient_client_instance" not in factory.__dict__
+
+
+@pytest.mark.asyncio
+async def test_close_closes_both_plain_and_resilient_client_when_both_are_used():
+    factory = HttpxClientFactory()
+    plain = factory._client_instance
+    resilient = factory.resilient_client_instance
+
+    await factory.close()
+
+    assert plain.is_closed is True
+    assert resilient.is_closed is True
+
+
+@pytest.mark.asyncio
 async def test_context_manager_starts_and_closes():
     async with HttpxClientFactory() as factory:
         client = factory.create_client()
@@ -124,7 +146,9 @@ async def test_event_log_logs_request_when_logger_provided():
 
     await factory._event_log(request)
 
-    logger.info.assert_called_once()
+    logger.info.assert_called_once_with("Request GET https://api.test.com/health")
+
+    await factory.close()
 
 
 @pytest.mark.asyncio
@@ -132,7 +156,7 @@ async def test_request_returns_json_when_content_type_is_json():
     inner_client = AsyncMock()
     response = MagicMock()
     response.headers = {"content-type": "application/json"}
-    response.text = '{"ok": true}'
+    response.content = b'{"ok": true}'
     response.raise_for_status = MagicMock()
     inner_client.request = AsyncMock(return_value=response)
 
@@ -155,6 +179,22 @@ async def test_request_returns_text_when_content_type_is_not_json():
     client = HttpxClient(inner_client)
 
     result = await client.post("/health", body={"a": 1})
+
+    assert result == "healthy"
+
+
+@pytest.mark.asyncio
+async def test_request_returns_text_when_content_type_header_is_missing():
+    inner_client = AsyncMock()
+    response = MagicMock()
+    response.headers = {}
+    response.text = "healthy"
+    response.raise_for_status = MagicMock()
+    inner_client.request = AsyncMock(return_value=response)
+
+    client = HttpxClient(inner_client)
+
+    result = await client.get("/health")
 
     assert result == "healthy"
 
@@ -261,6 +301,29 @@ async def test_resilient_transport_logs_and_retries_on_transient_failure():
     assert result is response
     assert inner_transport.handle_async_request.await_count == 2
     logger.warning.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_resilient_transport_breaker_timeout_duration_is_in_seconds_not_days():
+    settings = HttpClientSettings()
+    settings.circuit_breaker.recovery_timeout = 30
+    transport = ResilientTransport(http_client_settings=settings)
+
+    try:
+        assert transport._breaker.timeout_duration.total_seconds() == 30
+    finally:
+        await transport.aclose()
+
+
+@pytest.mark.asyncio
+async def test_resilient_transport_defaults_to_a_working_http_transport():
+    settings = HttpClientSettings()
+    transport = ResilientTransport(http_client_settings=settings)
+
+    try:
+        assert isinstance(transport._transport, httpx.AsyncHTTPTransport)
+    finally:
+        await transport.aclose()
 
 
 @pytest.mark.asyncio
