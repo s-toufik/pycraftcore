@@ -1,6 +1,7 @@
 operation:
   dummy_api_1_op:
     name: market_stock
+    type: api
     connector: ${connector.dummy_api_1}
     endpoint: /query
     method: GET
@@ -10,6 +11,7 @@ operation:
 
   dummy_api_2_op:
     name: market_stock
+    type: api
     connector: ${connector.dummy_api_2}
     endpoint: /time_series
     method: GET

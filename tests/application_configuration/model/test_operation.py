@@ -4,6 +4,7 @@ from pycraftcore.application_configuration.enum.connector_type import ConnectorT
 from pycraftcore.application_configuration.enum.file_operation_action import (
     FileOperationAction,
 )
+from pycraftcore.application_configuration.enum.operation_type import OperationType
 from pycraftcore.application_configuration.model.connector import ApiConnector, FileConnector
 from pycraftcore.application_configuration.model.operation import (
     ApiOperation,
@@ -38,6 +39,7 @@ def make_file_connector() -> FileConnector:
 def test_api_operation_holds_endpoint_and_method():
     operation = ApiOperation(
         name="ask",
+        type=OperationType.api,
         connector=make_api_connector(),
         endpoint="/ask",
         method=HttpMethod.POST,
@@ -52,6 +54,7 @@ def test_api_operation_holds_endpoint_and_method():
 def test_file_operation_holds_action_and_parameters():
     operation = FileOperation(
         name="export",
+        type=OperationType.file,
         connector=make_file_connector(),
         action=FileOperationAction.write,
         parameters={"path": "str"},
@@ -64,6 +67,7 @@ def test_file_operation_holds_action_and_parameters():
 def test_registry_returns_the_typed_operation_by_name():
     operation = ApiOperation(
         name="ask",
+        type=OperationType.api,
         connector=make_api_connector(),
         endpoint="/ask",
         method=HttpMethod.POST,
@@ -84,6 +88,7 @@ def test_registry_lookup_of_missing_operation_raises_key_error():
 def test_registry_lookup_of_wrong_kind_raises_type_error():
     operation = FileOperation(
         name="export",
+        type=OperationType.file,
         connector=make_file_connector(),
         action=FileOperationAction.write,
         parameters={},
@@ -92,3 +97,17 @@ def test_registry_lookup_of_wrong_kind_raises_type_error():
 
     with pytest.raises(TypeError):
         registry.api("export")
+
+
+def test_registry_rejects_an_operation_whose_declared_type_disagrees_with_its_class():
+    operation = ApiOperation(
+        name="ask",
+        type=OperationType.file,
+        connector=make_api_connector(),
+        endpoint="/ask",
+        method=HttpMethod.POST,
+        parameters={},
+    )
+
+    with pytest.raises(TypeError):
+        OperationRegistry({"ask": operation})

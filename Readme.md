@@ -98,8 +98,9 @@ connector:
 ```
 
 A database connector additionally takes `engine`, `host`, `port`, `default_name`, and a `pool` block controlling how
-many pooled connections the repository opens. An `operation/<tag>.yml` references a connector by tag and adds
-`endpoint`, `method`, and `parameters` — see `pycraftcore.application_configuration.model` for the full schema.
+many pooled connections the repository opens. An `operation/<tag>.yml` follows the same shape — a `type` (`api` /
+`file`) plus a `connector` reference — and adds `endpoint`/`method`/`parameters` for `api`, or `action`/`parameters`
+for `file`. See `pycraftcore.application_configuration.model` for the full schema.
 
 **Loading it:**
 
