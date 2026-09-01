@@ -10,8 +10,14 @@ from pycraftcore.application_configuration.enum.run_type_environment import (
 from pycraftcore.application_configuration.model.configuration import (
     ApplicationConfiguration,
 )
-from pycraftcore.application_configuration.model.connector import ConnectorTyping
-from pycraftcore.application_configuration.model.operation import OperationTyping
+from pycraftcore.application_configuration.model.connector import (
+    ConnectorRegistry,
+    ConnectorTyping,
+)
+from pycraftcore.application_configuration.model.operation import (
+    OperationRegistry,
+    OperationTyping,
+)
 
 
 class ApplicationConfigurationSchema(BaseModel):
@@ -26,4 +32,9 @@ class MapperDomainSchema:
     def map(
         app_configuration_schema: ApplicationConfigurationSchema,
     ) -> ApplicationConfiguration:
-        return ApplicationConfiguration(**vars(app_configuration_schema))
+        return ApplicationConfiguration(
+            env=app_configuration_schema.env,
+            run=app_configuration_schema.run,
+            connector=ConnectorRegistry(app_configuration_schema.connector),
+            operation=OperationRegistry(app_configuration_schema.operation),
+        )

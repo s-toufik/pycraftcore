@@ -123,6 +123,13 @@ loader = LoadApplicationConfiguration(reader, LoguruLogger())
 config = loader.load()  # re-reads and validates every call; raises on failure (after logging)
 ```
 
+**Reading it back:** `connector`/`operation` are typed registries, not raw dicts — `.api(name)`/`.database(name)`/`.file(name)`/`.telemetry(name)` and `.operation.api(name)`/`.operation.file(name)` return the concrete connector/operation type (no `cast`/`isinstance` needed at the call site) and raise `KeyError`/`TypeError` on a missing or mismatched name.
+
+```python
+postgres = config.connector.database("postgres")  # DatabaseConnector
+ask = config.operation.api("dummy_api_1_op")  # ApiOperation
+```
+
 ---
 
 ## Development

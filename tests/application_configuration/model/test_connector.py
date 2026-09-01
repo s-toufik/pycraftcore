@@ -1,6 +1,9 @@
+import pytest
+
 from pycraftcore.application_configuration.enum.connector_type import ConnectorType
 from pycraftcore.application_configuration.model.connector import (
     ApiConnector,
+    ConnectorRegistry,
     DatabaseConnector,
     FileConnector,
     TelemetryConnector,
@@ -59,3 +62,45 @@ def test_telemetry_connector_holds_host_and_port():
 
     assert connector.host == "collector"
     assert connector.port == 4317
+
+
+def make_database_connector(name: str = "db") -> DatabaseConnector:
+    return DatabaseConnector(
+        name=name,
+        type=ConnectorType.database,
+        auth=NoAuth(type=AuthType.none),
+        engine="sqlite",
+        host="/var/data",
+        port=0,
+        default_name="main",
+        pool={"max": 4},
+    )
+
+
+def test_registry_returns_the_typed_connector_by_name():
+    registry = ConnectorRegistry({ConnectorType.database: {"db": make_database_connector()}})
+
+    connector = registry.database("db")
+
+    assert isinstance(connector, DatabaseConnector)
+    assert connector.default_name == "main"
+
+
+def test_registry_getitem_returns_the_bucket_for_a_type():
+    connector = make_database_connector()
+    registry = ConnectorRegistry({ConnectorType.database: {"db": connector}})
+
+    assert registry[ConnectorType.database] == {"db": connector}
+    assert registry[ConnectorType.api] == {}
+
+
+def test_registry_lookup_of_missing_connector_raises_key_error():
+    registry = ConnectorRegistry()
+
+    with pytest.raises(KeyError):
+        registry.database("missing")
+
+
+def test_registry_rejects_a_connector_bucketed_under_the_wrong_type():
+    with pytest.raises(TypeError):
+        ConnectorRegistry({ConnectorType.api: {"db": make_database_connector()}})
