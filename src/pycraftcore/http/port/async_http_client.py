@@ -1,9 +1,8 @@
-from typing import Any, Protocol, TypeVar
-
-T = TypeVar("T")
+from typing import Any, Protocol, runtime_checkable
 
 
-class AsyncHttpFactory(Protocol):
+@runtime_checkable
+class AsyncHttpFactory[T](Protocol):
     async def start(self) -> None: ...
     async def close(self) -> None: ...
     def create_client(self) -> AsyncHttpClient: ...
@@ -11,6 +10,7 @@ class AsyncHttpFactory(Protocol):
     def resilient_client_instance(self) -> T: ...
 
 
+@runtime_checkable
 class AsyncHttpClient(Protocol):
     async def get(
         self,

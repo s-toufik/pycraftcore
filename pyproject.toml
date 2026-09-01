@@ -71,8 +71,8 @@ ignore = [
 ]
 
 [tool.ty.src]
-include = ["src"]
-exclude = ["tests", ".venv"]
+include = ["src", "tests/ducktype"]
+exclude = [".venv"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -10,6 +10,14 @@ clear_dependency_cache:
 install:
 	uv sync
 
+update_dependency:
+ifdef PACKAGE
+	uv lock --upgrade-package $(PACKAGE)
+else
+	uv lock --upgrade
+endif
+	uv sync
+
 install_dev:
 	uv sync --group dev
 
