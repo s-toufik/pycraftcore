@@ -149,9 +149,9 @@ uv run pre-commit run --all-files --hook-stage pre-commit
 ```bash
 make install_dev   # uv sync --group dev
 make test           # uv run pytest
-make lint            # uv run ruff check .
-make format          # uv run ruff format .
-make typing           # uv run mypy .  (strict mode)
+make lint            # uv run ruff check 
+make format          # uv run ruff format 
+make typecheck           # uv run ty  (strict mode)
 ```
 
 Run `pytest --cov=pycraftcore --cov-report=term-missing` for a coverage breakdown by module.
