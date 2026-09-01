@@ -1,6 +1,6 @@
-from collections.abc import Callable, Awaitable
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict
-from typing import Final, ParamSpec, TypeVar
+from typing import Any, Final, ParamSpec, TypeVar
 
 from pycraftcore.http.enum.http_method import HttpMethod
 from pycraftcore.http.port.async_circuit_breaker import AsyncCircuitBreaker
@@ -13,6 +13,10 @@ R = TypeVar("R")
 
 
 class ResilientClient:
+
+    get: Callable[..., Awaitable[Any]]
+    post: Callable[..., Awaitable[Any]]
+
     def __init__(
         self,
         base_client: AsyncHttpClient,

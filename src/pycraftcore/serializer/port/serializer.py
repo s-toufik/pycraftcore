@@ -1,11 +1,12 @@
-from typing import Protocol, TypeVar
+from typing import Protocol, TypeVar, runtime_checkable
 
 T = TypeVar("T")
 
 
-class Serializer(Protocol):
+@runtime_checkable
+class Serializer[W](Protocol):
     @staticmethod
-    def serialize(inputs: T) -> bytes: ...
+    def serialize(inputs: T) -> W: ...
 
     @staticmethod
-    def deserialize(inputs: bytes, cls: type[T]) -> T: ...
+    def deserialize(inputs: W, cls: type[T]) -> T: ...

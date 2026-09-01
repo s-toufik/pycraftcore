@@ -137,8 +137,12 @@ they load as.
 ```python
 from pathlib import Path
 
-from pycraftcore.application_configuration.adapter.load_application_configuration import LoadApplicationConfiguration
-from pycraftcore.application_configuration.adapter.omega_configuration_reader import OmegaConfigurationReader
+from pycraftcore.application_configuration.adapter.load_application_configuration import (
+    LoadApplicationConfiguration,
+)
+from pycraftcore.application_configuration.adapter.omega_configuration_reader import (
+    OmegaConfigurationReader,
+)
 from pycraftcore.application_configuration.enum.run_type_environment import RunTypeEnvironment
 from pycraftcore.logger.adapter.loguru_logger import LoguruLogger
 
@@ -147,8 +151,8 @@ loader = LoadApplicationConfiguration(reader, LoguruLogger())
 
 config = loader.load()
 
-connector = config.connector.api("<connector_tag>")   # ApiConnector
-operation = config.operation.api("<operation_tag>")   # ApiOperation
+connector = config.connector.api("<connector_tag>")  # ApiConnector
+operation = config.operation.api("<operation_tag>")  # ApiOperation
 ```
 
 `config.connector`/`config.operation` return the concrete connector/operation type for a given tag (`.api()`,

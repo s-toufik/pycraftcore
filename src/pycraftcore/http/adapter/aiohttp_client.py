@@ -1,6 +1,6 @@
 import ssl
 from collections.abc import Mapping
-from typing import Any, Self
+from typing import Any, NoReturn, Self
 
 import aiohttp
 import orjson
@@ -156,7 +156,7 @@ class AioHttpClientFactory:
         return False
 
     @property
-    def resilient_client_instance(self) -> None:
+    def resilient_client_instance(self) -> NoReturn:
         raise NotImplementedError(
             "For aiohttp adapter compose the resilient client using the resilient implementation"
         )

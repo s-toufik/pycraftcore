@@ -43,13 +43,6 @@ _OPERATION_CLASS_BY_TYPE: dict[OperationType, type[OperationTyping]] = {
 
 @dataclass(frozen=True, slots=True)
 class OperationRegistry:
-    """Operations keyed by name, with per-kind typed lookups.
-
-    Mirrors `ConnectorRegistry`: each operation declares its own `OperationType`, and a
-    mismatch between that declared type and its concrete dataclass is rejected eagerly here
-    instead of surfacing later as a wrong-typed lookup.
-    """
-
     by_name: dict[str, OperationTyping] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
