@@ -62,7 +62,10 @@ async def test_retry_policy_fails_after_retries():
     mock_func = AsyncMock(side_effect=Exception("boom"))
     wrapped = policy.decorator(mock_func)
 
-    with patch("asyncio.sleep", new=AsyncMock()), pytest.raises(Exception, match="boom"):
+    with (
+        patch("asyncio.sleep", new=AsyncMock()),
+        pytest.raises(Exception, match="boom"),
+    ):
         await wrapped()
 
     assert mock_func.await_count == 3

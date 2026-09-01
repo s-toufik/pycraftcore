@@ -6,7 +6,6 @@ import tempfile
 import textwrap
 import traceback
 from string import Template
-from typing import Optional
 
 from pycraftcore.runtime.python.schema import CodeStdout
 
@@ -129,9 +128,9 @@ class SafeCode:
     def __init__(
         self,
         code: str,
-        code_template: Optional[Template] = None,
-        code_timeout: Optional[int] = 10,
-        max_memory_mb: Optional[int] = 256,
+        code_template: Template | None = None,
+        code_timeout: int | None = 10,
+        max_memory_mb: int | None = 256,
     ) -> None:
         self._code = code
         self._code_template = code_template or _RUNNER_TEMPLATE
@@ -201,12 +200,10 @@ class SafeCode:
             stdout_bytes, stderr_bytes = await asyncio.wait_for(
                 proc.communicate(), timeout=self._code_timeout
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             proc.kill()
             await proc.wait()
-            return CodeStdout(
-                stdout="", stderr=f"Execution timed out after {self._code_timeout}s."
-            )
+            return CodeStdout(stdout="", stderr=f"Execution timed out after {self._code_timeout}s.")
 
         return self._build_result(proc.returncode, stderr_bytes, stdout_bytes)
 
@@ -220,14 +217,14 @@ class SafeCode:
                 check=False,
             )
         except subprocess.TimeoutExpired:
-            return CodeStdout(
-                stdout="", stderr=f"Execution timed out after {self._code_timeout}s."
-            )
+            return CodeStdout(stdout="", stderr=f"Execution timed out after {self._code_timeout}s.")
 
         return self._build_result(proc.returncode, proc.stderr, proc.stdout)
 
     @staticmethod
-    def _build_result(return_code: int | None, stderr_bytes: bytes, stdout_bytes: bytes) -> CodeStdout:
+    def _build_result(
+        return_code: int | None, stderr_bytes: bytes, stdout_bytes: bytes
+    ) -> CodeStdout:
         stdout = stdout_bytes.decode("utf-8", errors="replace")
         stderr = stderr_bytes.decode("utf-8", errors="replace")
         if return_code != 0:

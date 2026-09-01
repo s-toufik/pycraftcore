@@ -1,6 +1,7 @@
 import time
 from asyncio import Lock
-from typing import ParamSpec
+from collections.abc import Awaitable, Callable
+from typing import ParamSpec, TypeVar
 
 from pycraftcore.http.configuration.circuite_breaker_configuration import (
     CircuitBreakerSettings,
@@ -11,6 +12,7 @@ from pycraftcore.http.exception.circuit_breaker_open_exception import (
 )
 
 P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class CircuitBreakerPolicy:
@@ -78,7 +80,12 @@ class CircuitBreakerPolicy:
         if self._failure_counter >= self._settings.failure_threshold:
             self._state = CircuitState.OPEN
 
-    async def call(self, func, *args: P.args, **kwargs: P.kwargs):
+    async def call(
+        self,
+        func: Callable[P, Awaitable[R]],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R:
         async with self._lock:
             if not self._can_attempt():
                 raise CircuitBreakerOpenException(

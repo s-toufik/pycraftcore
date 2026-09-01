@@ -1,5 +1,6 @@
+from collections.abc import Callable, Awaitable
 from dataclasses import asdict
-from typing import Any, Final, ParamSpec
+from typing import Final, ParamSpec, TypeVar
 
 from pycraftcore.http.enum.http_method import HttpMethod
 from pycraftcore.http.port.async_circuit_breaker import AsyncCircuitBreaker
@@ -8,6 +9,7 @@ from pycraftcore.http.port.retry import Retry
 from pycraftcore.telemetry.port.telemetry import TelemetryTracer
 
 P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class ResilientClient:
@@ -31,7 +33,9 @@ class ResilientClient:
             method_name=HttpMethod.POST.value, method=self._base_client.post
         )
 
-    def _build_pipeline(self, method_name: str, method: Any) -> Any:
+    def _build_pipeline(
+        self, method_name: str, method: Callable[P, Awaitable[R]]
+    ) -> Callable[P, Awaitable[R]]:
 
         @self._trace.trace(
             span_name=method_name,

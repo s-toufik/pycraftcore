@@ -1,13 +1,11 @@
 from dataclasses import dataclass
-from typing import Union, List
+from typing import Any
 
 from pycraftcore.application_configuration.enum.file_operation_action import (
     FileOperationAction,
 )
 from pycraftcore.application_configuration.model.connector import ConnectorTyping
 from pycraftcore.http.enum.http_method import HttpMethod
-
-ParamType = Union[str, List[str]]
 
 
 @dataclass(slots=True)
@@ -20,13 +18,13 @@ class BaseOperation:
 class ApiOperation(BaseOperation):
     endpoint: str
     method: HttpMethod
-    parameters: dict[str, ParamType]
+    parameters: dict[str, Any]
 
 
 @dataclass(slots=True)
 class FileOperation(BaseOperation):
     action: FileOperationAction
-    parameters: dict[str, ParamType]
+    parameters: dict[str, Any]
 
 
-OperationTyping = Union[FileOperation, ApiOperation]
+OperationTyping = FileOperation | ApiOperation

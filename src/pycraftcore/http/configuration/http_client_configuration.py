@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 
-from pycraftcore.http.configuration.circuite_breaker_configuration import CircuitBreakerSettings
+from pycraftcore.http.configuration.circuite_breaker_configuration import (
+    CircuitBreakerSettings,
+)
 from pycraftcore.http.configuration.client_configuration import ClientSettings
 from pycraftcore.http.configuration.limits_configuration import LimitsSettings
 from pycraftcore.http.configuration.retry_configuration import RetrySettings

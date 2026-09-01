@@ -1,19 +1,24 @@
 operation:
-  alpha_vantage_stock:
+  dummy_api_1_op:
     name: market_stock
-    connector: ${connector.alpha_vantage}
+    connector: ${connector.dummy_api_1}
     endpoint: /query
     method: GET
     parameters:
       function: TIME_SERIES_WEEKLY
       symbol: APL, IBM, MSFT, GOOG
 
-  twelve_data_stock:
+  dummy_api_2_op:
     name: market_stock
-    connector: ${connector.twelve_data}
+    connector: ${connector.dummy_api_2}
     endpoint: /time_series
     method: GET
     parameters:
-      symbol: APL, IBM, MSFT, GOOG
+      symbols: [APL, IBM, MSFT, GOOG]
       interval: 5min
       apikey: demo
+      number: 5
+      list_numbers:
+        - 4
+        - 45
+        - 45.5

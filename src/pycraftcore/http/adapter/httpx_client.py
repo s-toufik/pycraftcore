@@ -3,7 +3,7 @@ from collections.abc import Callable, Mapping
 from datetime import timedelta
 from functools import cached_property
 from types import CoroutineType
-from typing import Any
+from typing import Any, Self
 
 import orjson
 from aiobreaker import CircuitBreaker, CircuitBreakerListener, CircuitBreakerState
@@ -43,7 +43,7 @@ class HttpxClientFactory:
         self._logger: Logger | None = logger
         self._http_transport: AsyncBaseTransport | None = http_transport
 
-    async def __aenter__(self) -> HttpxClientFactory:
+    async def __aenter__(self) -> Self:
         _ = self._client_instance
         return self
 
@@ -184,10 +184,13 @@ class BreakerLogger(CircuitBreakerListener):
             )
 
     def success(self, breaker: CircuitBreaker) -> None:
-        self._last_exception: Exception = None
+        self._last_exception: Exception | None = None
 
     def state_change(
-        self, breaker: CircuitBreaker, old: CircuitBreakerState, new: CircuitBreakerState
+        self,
+        breaker: CircuitBreaker,
+        old: CircuitBreakerState,
+        new: CircuitBreakerState,
     ) -> None:
         if self._logger:
             self._logger.info(f"Circuit breaker state change from {old.name} to {new.name}")

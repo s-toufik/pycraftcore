@@ -1,7 +1,7 @@
 from pathlib import Path
-from typing import cast, Any
+from typing import Any, cast
 
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from pycraftcore.application_configuration.adapter.schema import (
     ApplicationConfigurationSchema,
@@ -10,7 +10,9 @@ from pycraftcore.application_configuration.adapter.schema import (
 from pycraftcore.application_configuration.enum.run_type_environment import (
     RunTypeEnvironment,
 )
-from pycraftcore.application_configuration.model.configuration import ApplicationConfiguration
+from pycraftcore.application_configuration.model.configuration import (
+    ApplicationConfiguration,
+)
 
 
 class OmegaConfigurationReader:

@@ -1,4 +1,3 @@
-from pycraftcore.runtime.code import CodeFactory, Code
+from pycraftcore.runtime.code import Code, CodeFactory
 
-__all__ = ["CodeFactory", "Code"]
-
+__all__ = ["Code", "CodeFactory"]

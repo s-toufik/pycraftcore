@@ -1,6 +1,6 @@
 import json
 from dataclasses import asdict, is_dataclass
-from typing import Any, TypeVar, Type
+from typing import Any, TypeVar
 
 from pydantic import TypeAdapter
 
@@ -15,5 +15,5 @@ class JSONSerializer:
         return json.dumps(asdict(inputs))
 
     @staticmethod
-    def deserialize(inputs: str, cls: Type[T]) -> T:
+    def deserialize(inputs: str, cls: type[T]) -> T:
         return TypeAdapter(cls).validate_json(inputs)

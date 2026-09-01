@@ -35,7 +35,7 @@ class RetryPolicy:
 
                 except retry_on as exception:
                     if self._logger:
-                        self._logger.warning(f"Retrying {func.__name__} due to {exception}")
+                        self._logger.warning(f"Retrying {func} due to {exception}")
                     last_exception = exception
 
                     if attempt == retries - 1:

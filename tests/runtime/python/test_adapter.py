@@ -33,10 +33,7 @@ async def test_execute_runs_real_sandboxed_code_and_returns_json_result():
 async def test_execute_allows_defining_classes_in_sandboxed_code():
     safe_code = SafeCode(
         code=(
-            "class Point:\n"
-            "    def __init__(self, x):\n"
-            "        self.x = x\n"
-            "result = Point(3).x\n"
+            "class Point:\n    def __init__(self, x):\n        self.x = x\nresult = Point(3).x\n"
         ),
         code_timeout=10,
     )
@@ -158,7 +155,8 @@ async def test_execute_on_nonzero_returncode_preserves_partial_stdout():
 
 def test_build_environment_does_not_leak_arbitrary_host_variables():
     with patch.dict(
-        os.environ, {"PATH": "/usr/bin", "LANG": "en_US.UTF-8", "SECRET_TOKEN": "leak-me"}
+        os.environ,
+        {"PATH": "/usr/bin", "LANG": "en_US.UTF-8", "SECRET_TOKEN": "leak-me"},
     ):
         environment = SafeCode._build_environment()
 
@@ -210,9 +208,7 @@ async def test_execute_falls_back_to_sync_subprocess_when_event_loop_lacks_suppo
 @pytest.mark.asyncio
 async def test_execute_sync_fallback_does_not_swap_stdout_and_stderr():
     safe_code = SafeCode(code="result = 1", code_timeout=10)
-    fake_completed_process = MagicMock(
-        returncode=0, stdout=b'{"result": 1}', stderr=b""
-    )
+    fake_completed_process = MagicMock(returncode=0, stdout=b'{"result": 1}', stderr=b"")
 
     with (
         patch(
@@ -233,9 +229,7 @@ async def test_execute_sync_fallback_does_not_swap_stdout_and_stderr():
 @pytest.mark.asyncio
 async def test_execute_sync_fallback_on_nonzero_returncode_does_not_raise():
     safe_code = SafeCode(code="raise ValueError(1)", code_timeout=10)
-    fake_completed_process = MagicMock(
-        returncode=1, stdout=b"", stderr=b"Traceback: ValueError"
-    )
+    fake_completed_process = MagicMock(returncode=1, stdout=b"", stderr=b"Traceback: ValueError")
 
     with (
         patch(

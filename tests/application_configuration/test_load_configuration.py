@@ -8,7 +8,9 @@ from pycraftcore.application_configuration import (
 from pycraftcore.application_configuration.adapter.load_application_configuration import (
     LoadApplicationConfiguration,
 )
-from pycraftcore.application_configuration.model.configuration import ApplicationConfiguration
+from pycraftcore.application_configuration.model.configuration import (
+    ApplicationConfiguration,
+)
 from pycraftcore.logger.port import Logger
 
 
@@ -59,9 +61,7 @@ class TestLoad:
         mock_logger.critical.assert_called_once()
         assert "connection failed" in mock_logger.critical.call_args[0][0]
 
-    def test_load_retries_reader_after_previous_failure(
-        self, loader, mock_reader, mock_config
-    ):
+    def test_load_retries_reader_after_previous_failure(self, loader, mock_reader, mock_config):
         mock_reader.read.side_effect = [Exception("fail"), mock_config]
 
         with pytest.raises(Exception, match="fail"):

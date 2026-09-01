@@ -1,4 +1,5 @@
-from typing import Sequence, Any, Protocol
+from collections.abc import Sequence
+from typing import Any, Protocol
 
 from pycraftcore.computation_engine.const_typing import Numeric
 

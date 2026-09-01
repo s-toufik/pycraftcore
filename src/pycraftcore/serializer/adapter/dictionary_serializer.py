@@ -1,5 +1,5 @@
 from dataclasses import asdict, is_dataclass
-from typing import Any, TypeVar, Type
+from typing import Any, TypeVar
 
 from pydantic import TypeAdapter
 
@@ -14,5 +14,5 @@ class DictionarySerializer:
         return asdict(inputs)
 
     @staticmethod
-    def deserialize(inputs: dict, cls: Type[T]) -> T:
+    def deserialize(inputs: dict, cls: type[T]) -> T:
         return TypeAdapter(cls).validate_python(inputs)

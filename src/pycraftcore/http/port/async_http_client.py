@@ -1,4 +1,4 @@
-from typing import Protocol, Any, Optional, TypeVar
+from typing import Any, Protocol, TypeVar
 
 T = TypeVar("T")
 
@@ -16,13 +16,13 @@ class AsyncHttpClient(Protocol):
         self,
         endpoint: str,
         *,
-        params: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Any: ...
     async def post(
         self,
         endpoint: str,
         *,
-        body: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Any: ...

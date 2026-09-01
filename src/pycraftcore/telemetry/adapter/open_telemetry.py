@@ -1,12 +1,13 @@
+from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import ParamSpec, TypeVar, Callable, Awaitable, Any
+from typing import Any, ParamSpec, TypeVar
 
 from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode, Tracer
-from opentelemetry.sdk.resources import Resource, SERVICE_NAME
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.trace import Status, StatusCode, Tracer
 
 from pycraftcore.application_configuration.enum.run_type_environment import (
     RunTypeEnvironment,
