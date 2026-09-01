@@ -30,6 +30,7 @@ def _kind_tag(value: Any) -> str:
     """Discriminator: read `type` off a raw dict (pre-coercion) or an already-built dataclass."""
     return value["type"] if isinstance(value, dict) else value.type.value
 
+
 _ConnectorSchemaTyping = Annotated[
     Annotated[ApiConnector, Tag("api")]
     | Annotated[DatabaseConnector, Tag("database")]
