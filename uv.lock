@@ -1295,7 +1295,7 @@ wheels = [
 
 [[package]]
 name = "pycraftcore"
-version = "0.1.7"
+version = "0.1.9"
 source = { editable = "." }
 dependencies = [
     { name = "aiobreaker" },
