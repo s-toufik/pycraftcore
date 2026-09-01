@@ -1,4 +1,7 @@
+import asyncio
 import functools
+from pathlib import Path
+
 from pyinstrument import Profiler
 
 
@@ -12,8 +15,11 @@ def profiled(output_path: str = "profile.html"):
                 return await func(*args, **kwargs)
             finally:
                 profiler.stop()
-                with open(output_path, "w") as f:
-                    f.write(profiler.output_html())
+                await asyncio.to_thread(
+                    Path(output_path).write_text,
+                    profiler.output_html(),
+                    encoding="utf-8",
+                )
 
         return wrapper
 

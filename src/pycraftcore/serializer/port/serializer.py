@@ -1,4 +1,4 @@
-from typing import TypeVar, Type, Protocol
+from typing import Protocol, TypeVar
 
 T = TypeVar("T")
 
@@ -8,4 +8,4 @@ class Serializer(Protocol):
     def serialize(inputs: T) -> bytes: ...
 
     @staticmethod
-    def deserialize(inputs: bytes, cls: Type[T]) -> T: ...
+    def deserialize(inputs: bytes, cls: type[T]) -> T: ...

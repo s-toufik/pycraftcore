@@ -1,22 +1,31 @@
 connector:
-  alpha_vantage:
-    name: alpha_vantage
+  dummy_api_1:
+    name: dummy_api_1
     type: api
-    base_url: https://www.alphavantage.co
+    base_url: https://www.dummy_api_1.co
     timeout: 5
     retry: 3
     auth:
       type: token
       key_name: apikey
-      key_value: ${oc.env:ALPHA_VANTAGE_API_KEY}
+      key_value: ${oc.env:API_KEY}
 
-  twelve_data:
-    name: twelve_data
+  dummy_api_2:
+    name: dummy_api_2
     type: api
-    base_url: https://api.twelvedata.com
+    base_url: https://api.dummy_api_2.com
     timeout: 5
     retry: 3
     auth:
-      type: token
-      key_name: api_token
-      key_value: ${oc.env:TWELVE_DATA_API_KEY}
+      type: basic
+      username: ${oc.env:API_USERNAME}
+      password: ${oc.env:API_PASSWORD}
+
+  dummy_api_3:
+    name: dummy_api_3
+    type: api
+    base_url: https://api.dummy_api_3.com
+    timeout: 5
+    retry: 3
+    auth:
+      type: none

@@ -1,13 +1,15 @@
-from typing import Sequence, Any
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
-from scipy import interpolate, integrate
+from scipy import integrate, interpolate
 
-from pycraftcore.computation_engine.const_typing import Numeric, Kind
+from pycraftcore.computation_engine.const_typing import Kind, Numeric
 
 
 class ScipyCalculusOperation:
-    def _to_array(self, sequence: Sequence[Any]) -> np.ndarray:
+    @staticmethod
+    def _to_array(sequence: Sequence[Any]) -> np.ndarray:
         return np.asarray(sequence, dtype=np.float64)
 
     def integrate(self, sequence: Sequence[Numeric], dx: float) -> float:
@@ -16,7 +18,7 @@ class ScipyCalculusOperation:
 
     def interpolate(
         self, sequence: Sequence[Numeric], kind: Kind = "linear", num: int | None = None
-    ) -> Sequence[Numeric]:
+    ) -> np.ndarray:
         arr = self._to_array(sequence)
         if arr.size < 2:
             raise ValueError("interpolation requires at least two points")

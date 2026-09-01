@@ -2,7 +2,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pycraftcore.application_configuration.enum.run_type_environment import RunTypeEnvironment
+from pycraftcore.application_configuration.enum.run_type_environment import (
+    RunTypeEnvironment,
+)
 from pycraftcore.http.context.request_context import request_id_context
 from pycraftcore.telemetry.adapter.open_telemetry import (
     OpenTelemetryProvider,
@@ -40,7 +42,7 @@ def test_provider_uses_otlp_exporter_when_endpoint_given():
 
         OpenTelemetryProvider(
             service_name="svc",
-            environment=RunTypeEnvironment.production,
+            environment=RunTypeEnvironment.deploy,
             otlp_endpoint="http://collector:4317",
         )
 

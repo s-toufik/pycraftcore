@@ -1,4 +1,5 @@
-from typing import Protocol, ParamSpec, TypeVar, Callable, Awaitable
+from collections.abc import Awaitable, Callable
+from typing import ParamSpec, Protocol, TypeVar
 
 from pycraftcore.http.configuration.retry_configuration import RetrySettings
 

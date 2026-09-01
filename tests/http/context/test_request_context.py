@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from pycraftcore.http.context.request_context import request_context
 from pycraftcore.http.middleware import RequestMiddleware

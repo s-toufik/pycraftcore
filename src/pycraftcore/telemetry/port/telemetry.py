@@ -1,4 +1,5 @@
-from typing import Protocol, Callable, Awaitable, ParamSpec, TypeVar, Any
+from collections.abc import Awaitable, Callable
+from typing import Any, ParamSpec, Protocol, TypeVar
 
 P = ParamSpec("P")
 R = TypeVar("R")

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pycraftcore"
-version = "0.1.6"
+version = "0.1.7"
 authors = [
     { name = "Toufik Saouchi", email = "toufik.saouchi@gmail.com" },
 ]
@@ -38,6 +38,8 @@ dependencies = [
     "aiosqlite",
     "sqlglot",
     "starlette",
+    "pandas",
+    "matplotlib",
 ]
 
 [dependency-groups]
@@ -48,17 +50,29 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff",
     "scipy-stubs>=1.17.1.3",
-    "Pyright",
-    "mypy"
+    "ty",
+    "pre-commit"
 ]
 
 [tool.ruff]
 line-length = 100
 target-version = "py314"
 
-[tool.mypy]
-python_version = "3.14"
-strict = true
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "UP",   # pyupgrade
+]
+ignore = [
+    "B017", # Blind exeception in tests
+    "BLE001", # Blind exception in code
+    "E501", # Line length
+]
+
+[tool.ty.src]
+include = ["src"]
+exclude = ["tests", ".venv"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

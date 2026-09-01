@@ -1,5 +1,5 @@
 import uuid
-from typing import Callable, Awaitable
+from collections.abc import Awaitable, Callable
 from contextvars import Token
 
 from starlette.middleware.base import BaseHTTPMiddleware

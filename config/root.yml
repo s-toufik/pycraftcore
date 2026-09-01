@@ -1,11 +1,12 @@
 application_configuration:
-  env: ${oc.env:APP_ENV,dev}
+  env: ${oc.env:APP_ENV,debug}
   run: async
 
   connector:
     api:
-      alpha_vantage: ${connector.alpha_vantage}
-      twelve_data: ${connector.twelve_data}
+      dummy_api_1: ${connector.dummy_api_1}
+      dummy_api_2: ${connector.dummy_api_2}
+      dummy_api_3: ${connector.dummy_api_3}
     file:
       local_fs: ${connector.local_fs}
     database:
@@ -14,8 +15,5 @@ application_configuration:
       open_telemetry: ${connector.telemetry}
 
   operation:
-    alpha_vantage_stock: ${operation.alpha_vantage_stock}
-    twelve_data_stock: ${operation.twelve_data_stock}
-
-  cronjob:
-    - ${cronjob.get_alpha_vantage_stock}
+    dummy_api_1_op: ${operation.dummy_api_1_op}
+    dummy_api_2_op: ${operation.dummy_api_2_op}

@@ -1,4 +1,6 @@
-from pycraftcore.telemetry.adapter.open_telemetry import OpenTelemetryTracer, OpenTelemetryProvider
+from pycraftcore.telemetry.adapter.open_telemetry import (
+    OpenTelemetryProvider,
+    OpenTelemetryTracer,
+)
 
 __all__ = ["OpenTelemetryProvider", "OpenTelemetryTracer"]
-

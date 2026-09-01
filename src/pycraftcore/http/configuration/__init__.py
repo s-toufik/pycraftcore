@@ -1,4 +1,6 @@
-from pycraftcore.http.configuration.circuite_breaker_configuration import CircuitBreakerSettings
+from pycraftcore.http.configuration.circuite_breaker_configuration import (
+    CircuitBreakerSettings,
+)
 from pycraftcore.http.configuration.client_configuration import ClientSettings
 from pycraftcore.http.configuration.http_client_configuration import HttpClientSettings
 from pycraftcore.http.configuration.limits_configuration import LimitsSettings

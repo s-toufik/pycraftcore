@@ -1,7 +1,11 @@
-from sqlglot import Expr, errors, ErrorLevel, parse
+from sqlglot import ErrorLevel, Expr, errors, parse
 
-from pycraftcore.query_language.constants.allowed_root_statements import ALLOWED_ROOT_STATEMENTS
-from pycraftcore.query_language.constants.forbidden_statements import FORBIDDEN_EXPRESSIONS
+from pycraftcore.query_language.constants.allowed_root_statements import (
+    ALLOWED_ROOT_STATEMENTS,
+)
+from pycraftcore.query_language.constants.forbidden_statements import (
+    FORBIDDEN_EXPRESSIONS,
+)
 
 
 class SqlExpressionHandler:

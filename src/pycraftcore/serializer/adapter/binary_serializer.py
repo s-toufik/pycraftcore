@@ -1,5 +1,5 @@
 from dataclasses import asdict, is_dataclass
-from typing import Any, TypeVar, Type
+from typing import Any, TypeVar
 
 import msgpack
 from pydantic import TypeAdapter
@@ -15,5 +15,5 @@ class BinarySerializer:
         return msgpack.packb(asdict(inputs))
 
     @staticmethod
-    def deserialize(inputs: bytes, cls: Type[T]) -> T:
+    def deserialize(inputs: bytes, cls: type[T]) -> T:
         return TypeAdapter(cls).validate_python(msgpack.unpackb(inputs, raw=False))

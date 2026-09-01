@@ -1,8 +1,9 @@
 import asyncio
+from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Iterable
+from typing import Any
 
-from aiosqlite import Row, Connection
+from aiosqlite import Connection, Row
 
 
 class SqliteRepository:
