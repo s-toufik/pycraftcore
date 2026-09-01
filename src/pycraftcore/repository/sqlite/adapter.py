@@ -26,11 +26,13 @@ class SqliteRepository:
     ) -> list[dict[str, Any]]:
         async with self._acquire() as connection:
             cursor = await connection.execute(sql, parameters)
+            try:
+                if cursor.description is None:
+                    await connection.commit()
+                    return []
 
-            if cursor.description is None:
-                await connection.commit()
-                return []
+                rows: Iterable[Row] = await cursor.fetchall()
 
-            rows: Iterable[Row] = await cursor.fetchall()
-
-            return [dict(row) for row in rows]
+                return [dict(row) for row in rows]
+            finally:
+                await cursor.close()

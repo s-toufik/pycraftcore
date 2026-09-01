@@ -1,5 +1,6 @@
 import uuid
 from typing import Callable, Awaitable
+from contextvars import Token
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -13,9 +14,13 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
 
-        request_id = request.headers.get("X-Request-ID") or self._generate_request_id()
-        request_id_context.set(request_id)
-        response = await call_next(request)
+        request_id: str = request.headers.get("X-Request-ID") or self._generate_request_id()
+        token: Token = request_id_context.set(request_id)
+        try:
+            response: Response = await call_next(request)
+        finally:
+            request_id_context.reset(token)
+
         response.headers["X-Request-ID"] = request_id
 
         return response

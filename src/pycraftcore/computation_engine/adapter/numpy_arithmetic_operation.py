@@ -21,22 +21,31 @@ class NumPyArithmeticOperation:
         return np.log(ratio)
 
     def rolling_average(self, sequence: Sequence[Numeric], window: int = 5) -> np.ndarray:
+        self._validate_window(window)
+
         if len(sequence) < window:
             return self._empty_array()
 
         array = self._as_array(sequence)
-        kernel = self._as_array((np.ones(window) / window).astype(np.float64))
-        return np.convolve(array, kernel)
+        kernel = np.full(window, 1.0 / window, dtype=np.float64)
+        return np.convolve(array, kernel, mode="valid")
 
     def rolling_standard_deviation(
         self, sequence: Sequence[Numeric], window: int = 5
     ) -> np.ndarray:
+        self._validate_window(window)
+
         if len(sequence) < window:
             return self._empty_array()
 
         array = self._as_array(sequence)
 
         return np.array([np.std(array[i : i + window]) for i in range(len(array) - window + 1)])
+
+    @staticmethod
+    def _validate_window(window: int) -> None:
+        if window <= 0:
+            raise ValueError("window must be strictly positive")
 
     @staticmethod
     def _empty_array() -> np.ndarray:

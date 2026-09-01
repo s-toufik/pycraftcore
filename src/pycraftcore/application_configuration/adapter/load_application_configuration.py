@@ -1,4 +1,4 @@
-import threading
+import traceback
 from typing import ParamSpec
 
 from pycraftcore.application_configuration.model.configuration import ApplicationConfiguration
@@ -11,31 +11,18 @@ P = ParamSpec("P")
 
 
 class LoadApplicationConfiguration:
-    _instance = None
-    _lock = threading.Lock()
-
-    def __new__(cls, *args: P.args, **kwargs: P.kwargs):
-        if not cls._instance:
-            with cls._lock:
-                if not cls._instance:
-                    cls._instance = object.__new__(cls)
-        return cls._instance
 
     def __init__(self, configuration_reader: ConfigurationReader, logger: Logger):
         self._configuration_reader = configuration_reader
         self._logger = logger
-        self._cached_config: ApplicationConfiguration | None = None
 
     def load(self) -> ApplicationConfiguration | None:
-        if self._cached_config is None:
-            try:
-                self._cached_config = self._configuration_reader.read()
-            except Exception as exception:
-                self._logger.critical(exception.__str__())
-        return self._cached_config
+        try:
+            configuration: ApplicationConfiguration = self._configuration_reader.read()
+            self._logger.info(f"Configuration loaded successfully")
+            return configuration
+        except Exception as exception:
+            traceback_str: str = "".join(traceback.format_exception(exception))
+            self._logger.critical(f"Configuration could not be read : {traceback_str}")
+            raise exception
 
-    def reload(self) -> ApplicationConfiguration | None:
-        with self._lock:
-            configuration = self._configuration_reader.read()
-        self._cached_config = configuration
-        return self._cached_config

@@ -59,6 +59,18 @@ def test_rolling_average_convolves_with_uniform_kernel(op):
     assert np.allclose(result, [1.0, 2.0, 3.0])
 
 
+def test_rolling_average_returns_valid_length_output_without_edge_artifacts(op):
+    result = op.rolling_average([1.0, 2.0, 3.0, 4.0], window=2)
+
+    assert np.allclose(result, [1.5, 2.5, 3.5])
+
+
+@pytest.mark.parametrize("window", [0, -1])
+def test_rolling_average_rejects_non_positive_window(op, window):
+    with pytest.raises(ValueError, match="window must be strictly positive"):
+        op.rolling_average([1.0, 2.0, 3.0], window=window)
+
+
 def test_rolling_standard_deviation_below_window_is_empty(op):
     result = op.rolling_standard_deviation([1.0, 2.0], window=5)
 
@@ -73,3 +85,9 @@ def test_rolling_standard_deviation_matches_manual_computation(op):
 
     expected = [np.std(sequence[i : i + window]) for i in range(len(sequence) - window + 1)]
     assert np.allclose(result, expected)
+
+
+@pytest.mark.parametrize("window", [0, -1])
+def test_rolling_standard_deviation_rejects_non_positive_window(op, window):
+    with pytest.raises(ValueError, match="window must be strictly positive"):
+        op.rolling_standard_deviation([1.0, 2.0, 3.0], window=window)

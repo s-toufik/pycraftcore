@@ -51,40 +51,25 @@ class HttpxClientFactory:
         await self.close()
 
     async def start(self) -> None: ...
+
     async def close(self) -> None:
-        if not self._client_instance.is_closed:
-            await self._client_instance.aclose()
+        for attribute in ("_client_instance", "_resilient_client_instance"):
+            client: AsyncClient | None = self.__dict__.get(attribute)
+            if client is not None and not client.is_closed:
+                await client.aclose()
 
     def create_client(self) -> AsyncHttpClient:
         return HttpxClient(self._client_instance)
 
     @cached_property
     def _client_instance(self) -> AsyncClient:
-        limits: Limits = Limits(
-            max_connections=self._http_client_settings.limits.max_connections,
-            max_keepalive_connections=self._http_client_settings.limits.max_keepalive_connections,
-            keepalive_expiry=self._http_client_settings.limits.keep_alive_timeout,
-        )
-        timeout: Timeout = Timeout(self._http_client_settings.limits.timeout)
-        if not self._http_transport:
-            self._http_transport: AsyncHTTPTransport = AsyncHTTPTransport(
-                retries=self._http_client_settings.retry.retry_count,
-                verify=self._create_ssl_from_certificate(),
-            )
-
-        hooks: dict[str, list[Any]] | None = None
-        if hook_events := self._event():
-            hooks: dict[str, list[Any]] = {"request": hook_events}
-
-        client = AsyncClient(
+        return AsyncClient(
             base_url=self._http_client_settings.client_params.base_url or "",
-            timeout=timeout,
-            limits=limits,
-            transport=self._http_transport,
-            event_hooks=hooks,
+            timeout=self._timeout(),
+            limits=self._limits(),
+            transport=self._base_transport(),
+            event_hooks=self._event_hooks(),
         )
-
-        return client
 
     @property
     def resilient_client_instance(self) -> AsyncClient:
@@ -92,33 +77,39 @@ class HttpxClientFactory:
 
     @cached_property
     def _resilient_client_instance(self) -> AsyncClient:
-        limits: Limits = Limits(
+        return AsyncClient(
+            base_url=self._http_client_settings.client_params.base_url or "",
+            timeout=self._timeout(),
+            limits=self._limits(),
+            transport=ResilientTransport(
+                http_client_settings=self._http_client_settings,
+                logger=self._logger,
+                transport=self._base_transport(),
+            ),
+            event_hooks=self._event_hooks(),
+        )
+
+    def _limits(self) -> Limits:
+        return Limits(
             max_connections=self._http_client_settings.limits.max_connections,
             max_keepalive_connections=self._http_client_settings.limits.max_keepalive_connections,
             keepalive_expiry=self._http_client_settings.limits.keep_alive_timeout,
         )
-        timeout: Timeout = Timeout(self._http_client_settings.limits.timeout)
-        if not self._http_transport:
-            self._http_transport: AsyncHTTPTransport = AsyncHTTPTransport(
+
+    def _timeout(self) -> Timeout:
+        return Timeout(self._http_client_settings.limits.timeout)
+
+    def _base_transport(self) -> AsyncBaseTransport:
+        if self._http_transport is None:
+            self._http_transport = AsyncHTTPTransport(
                 retries=self._http_client_settings.retry.retry_count,
                 verify=self._create_ssl_from_certificate(),
             )
+        return self._http_transport
 
-        hooks: dict[str, list[Any]] | None = None
-        if hook_events := self._event():
-            hooks: dict[str, list[Any]] = {"request": hook_events}
-
-        client = AsyncClient(
-            base_url=self._http_client_settings.client_params.base_url or "",
-            timeout=timeout,
-            limits=limits,
-            transport=ResilientTransport(
-                http_client_settings=self._http_client_settings,
-                logger=self._logger,
-                transport=self._http_transport,
-            ),
-        )
-        return client
+    def _event_hooks(self) -> dict[str, list[Any]] | None:
+        hook_events = self._event()
+        return {"request": hook_events} if hook_events else None
 
     def _create_ssl_from_certificate(self) -> bool | ssl.SSLContext:
         if certificate_path := self._http_client_settings.security.certificate:
@@ -133,9 +124,8 @@ class HttpxClientFactory:
         return [self._event_log]
 
     async def _event_log(self, request: Request) -> None:
-        counter: int = 0
         if self._logger:
-            self._logger.info(f"Request #{counter}: {request.method} {request.url}")
+            self._logger.info(f"Request {request.method} {request.url}")
 
 
 class HttpxClient:
@@ -151,12 +141,14 @@ class HttpxClient:
         json: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> Any:
-        response: Any = await self._client.request(
+        response: Response = await self._client.request(
             method=method, url=endpoint, params=params, json=json, headers=headers
         )
         response.raise_for_status()
-        if "application/json" in response.headers.get("content-type", None):
-            return orjson.loads(response.text)
+
+        content_type: str = response.headers.get("content-type", "")
+        if "application/json" in content_type:
+            return orjson.loads(response.content)
 
         return response.text
 
@@ -184,7 +176,7 @@ class BreakerLogger(CircuitBreakerListener):
         self._logger: Logger | None = logger
         self._last_exception: Exception | None = None
 
-    def failure(self, breaker: CircuitBreaker, exception: Exception):
+    def failure(self, breaker: CircuitBreaker, exception: Exception) -> None:
         self._last_exception: Exception = exception
         if self._logger:
             self._logger.warning(
@@ -216,11 +208,13 @@ class ResilientTransport(AsyncBaseTransport):
     ) -> None:
         self._http_client_settings = http_client_settings or HttpClientSettings()
         self._logger: Logger | None = logger
-        self._transport: AsyncBaseTransport = transport or AsyncBaseTransport()
+        self._transport: AsyncBaseTransport = transport or AsyncHTTPTransport()
         self._breaker_logger: BreakerLogger = BreakerLogger(logger)
         self._breaker: CircuitBreaker = CircuitBreaker(
             fail_max=self._http_client_settings.circuit_breaker.failure_threshold,
-            timeout_duration=timedelta(self._http_client_settings.circuit_breaker.recovery_timeout),
+            timeout_duration=timedelta(
+                seconds=self._http_client_settings.circuit_breaker.recovery_timeout
+            ),
             listeners=[self._breaker_logger],
         )
         self._retryer: AsyncRetrying = AsyncRetrying(
@@ -234,8 +228,8 @@ class ResilientTransport(AsyncBaseTransport):
         )
 
     def _log_retry(self, retry_state: RetryCallState) -> None:
-        exception = retry_state.outcome.exception()
-        if self._logger:
+        exception = retry_state.outcome.exception() if retry_state.outcome else None
+        if self._logger and retry_state.next_action:
             self._logger.warning(
                 f"Retry #{retry_state.attempt_number} failed due to {exception!r}; "
                 f"retrying in {retry_state.next_action.sleep:.1f} seconds..."

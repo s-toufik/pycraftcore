@@ -27,7 +27,7 @@ async def test_uses_incoming_request_id_header_when_present():
     result = await middleware.dispatch(request, call_next)
 
     assert result.headers["X-Request-ID"] == "incoming-id"
-    assert request_id_context.get() == "incoming-id"
+    assert request_id_context.get() is None
 
 
 @pytest.mark.asyncio
@@ -41,7 +41,35 @@ async def test_generates_request_id_when_header_missing():
     result = await middleware.dispatch(request, call_next)
 
     assert result.headers["X-Request-ID"]
-    assert request_id_context.get() == result.headers["X-Request-ID"]
+    assert request_id_context.get() is None
+
+
+@pytest.mark.asyncio
+async def test_request_id_context_is_set_during_downstream_call():
+    middleware = make_middleware()
+    request = make_request({"X-Request-ID": "incoming-id"})
+    response = MagicMock()
+    response.headers = {}
+
+    async def call_next(_request):
+        assert request_id_context.get() == "incoming-id"
+        return response
+
+    await middleware.dispatch(request, call_next)
+
+
+@pytest.mark.asyncio
+async def test_request_id_context_is_reset_even_when_downstream_raises():
+    middleware = make_middleware()
+    request = make_request({"X-Request-ID": "incoming-id"})
+
+    async def call_next(_request):
+        raise RuntimeError("downstream failure")
+
+    with pytest.raises(RuntimeError, match="downstream failure"):
+        await middleware.dispatch(request, call_next)
+
+    assert request_id_context.get() is None
 
 
 @pytest.mark.asyncio

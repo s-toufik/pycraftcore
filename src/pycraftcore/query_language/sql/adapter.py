@@ -1,6 +1,3 @@
-import traceback
-from typing import cast
-
 from sqlglot import Expr, errors, ErrorLevel, parse
 
 from pycraftcore.query_language.constants.allowed_root_statements import ALLOWED_ROOT_STATEMENTS
@@ -17,18 +14,17 @@ class SqlExpressionHandler:
             expressions: list[Expr | None] = parse(
                 self._expression, self._dialect, error_level=ErrorLevel.RAISE
             )
-            if not all(expressions):
-                raise ValueError("SQL Expression could not be parsed")
-
-            return cast(list[Expr], expressions)
-
         except errors.SqlglotError as exception:
-            traceback.print_exc()
+            raise ValueError("SQL Expression could not be parsed") from exception
+
+        if not expressions or not all(expressions):
             raise ValueError("SQL Expression could not be parsed")
 
-    def validate_safe_query(self, expressions: list[Expr | None]) -> None:
-        expressions: list[Expr | None] = expressions or self.parse()
-        for expression in expressions:
+        return [expression for expression in expressions if expression is not None]
+
+    def validate_safe_query(self, expressions: list[Expr] | None = None) -> None:
+        checked: list[Expr] = expressions or self.parse()
+        for expression in checked:
             if not isinstance(expression, ALLOWED_ROOT_STATEMENTS):
                 raise ValueError(
                     f"SQL Expression contains forbidden statement: {type(expression).__name__}"
@@ -40,8 +36,6 @@ class SqlExpressionHandler:
                     )
 
     def transpile(self, expressions: list[Expr] | None = None) -> str:
-        expressions: list[Expr | None] = expressions or self.parse()
-        self.validate_safe_query(expressions)
-        return ";\n".join(
-            expression.sql(dialect=self._dialect) for expression in expressions if expression
-        )
+        checked: list[Expr] = expressions or self.parse()
+        self.validate_safe_query(checked)
+        return ";\n".join(expression.sql(dialect=self._dialect) for expression in checked)

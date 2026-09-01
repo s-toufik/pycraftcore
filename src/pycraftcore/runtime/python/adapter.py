@@ -1,8 +1,10 @@
 import asyncio
 import os
+import subprocess
 import sys
 import tempfile
 import textwrap
+import traceback
 from string import Template
 from typing import Optional
 
@@ -87,9 +89,11 @@ _SAFE_BUILTINS = {
 }
 
 _SAFE_BUILTINS["__import__"] = _safe_import
+_SAFE_BUILTINS["__build_class__"] = builtins.__build_class__
 
 _globals = {
     "__builtins__": _SAFE_BUILTINS,
+    "__name__": "__sandbox__",
 }
 
 try:
@@ -143,6 +147,19 @@ class SafeCode:
         )
 
     @staticmethod
+    def _build_environment() -> dict[str, str]:
+        environment: dict[str, str] = {
+            "PATH": os.environ.get("PATH", ""),
+            "LANG": os.environ.get("LANG", "C.UTF-8"),
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONNOUSERSITE": "1",
+            "PYTHON_COLORS": "0",
+        }
+        if sys.platform == "win32":
+            environment["SYSTEMROOT"] = os.environ.get("SYSTEMROOT", "")
+        return environment
+
+    @staticmethod
     def _write_temporary_script(runner_src: str) -> str:
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".py", delete=False, encoding="utf-8"
@@ -160,36 +177,62 @@ class SafeCode:
 
         runner_src: str = self._parse_code()
         temporary_script_path = await self._create_temporary_script(runner_src)
-        env = {
-            **os.environ,
-            "PYTHONDONTWRITEBYTECODE": "1",
-            "PYTHON_COLORS": "0",
-        }
+        env = self._build_environment()
         try:
-            proc = await asyncio.create_subprocess_exec(
-                sys.executable,
-                temporary_script_path,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=env,
-            )
-            try:
-                stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                    proc.communicate(), timeout=self._code_timeout
-                )
-            except asyncio.TimeoutError:
-                proc.kill()
-                await proc.wait()
-                return CodeStdout(
-                    stdout="", stderr=f"Execution timed out after {self._code_timeout}s."
-                )
-        except Exception as exc:
-            return CodeStdout(stdout="", stderr=f"Subprocess error: {exc}")
+            return await self._execute_async(temporary_script_path, env)
+        except NotImplementedError:
+            return await asyncio.to_thread(self._execute_sync, temporary_script_path, env)
+        except Exception as exception:
+            traceback.print_exc()
+            traceback_str: str = "".join(traceback.format_exception(exception))
+            return CodeStdout(stdout="", stderr=f"Subprocess error: {traceback_str}")
         finally:
             await asyncio.to_thread(os.unlink, temporary_script_path)
 
+    async def _execute_async(self, script_path: str, env: dict[str, str]) -> CodeStdout:
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable,
+            script_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                proc.communicate(), timeout=self._code_timeout
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            return CodeStdout(
+                stdout="", stderr=f"Execution timed out after {self._code_timeout}s."
+            )
+
+        return self._build_result(proc.returncode, stderr_bytes, stdout_bytes)
+
+    def _execute_sync(self, script_path: str, env: dict[str, str]) -> CodeStdout:
+        try:
+            proc = subprocess.run(
+                [sys.executable, script_path],
+                capture_output=True,
+                timeout=self._code_timeout,
+                env=env,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return CodeStdout(
+                stdout="", stderr=f"Execution timed out after {self._code_timeout}s."
+            )
+
+        return self._build_result(proc.returncode, proc.stderr, proc.stdout)
+
+    @staticmethod
+    def _build_result(return_code: int | None, stderr_bytes: bytes, stdout_bytes: bytes) -> CodeStdout:
         stdout = stdout_bytes.decode("utf-8", errors="replace")
         stderr = stderr_bytes.decode("utf-8", errors="replace")
-        if proc.returncode != 0:
-            return CodeStdout(stdout="", stderr=f"Process exited with code {stderr}.")
-        return CodeStdout(stdout=stdout.strip() or "", stderr=stderr.strip() or "")
+        if return_code != 0:
+            return CodeStdout(
+                stdout=stdout.strip(),
+                stderr=stderr.strip() or f"Process exited with code {return_code}.",
+            )
+        return CodeStdout(stdout=stdout.strip(), stderr=stderr.strip())

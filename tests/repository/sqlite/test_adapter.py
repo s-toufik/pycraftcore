@@ -18,6 +18,7 @@ def fake_cursor():
             {"id": 2, "name": "Alice"},
         ]
     )
+    cursor.close = AsyncMock()
 
     return cursor
 
@@ -52,9 +53,28 @@ async def test_execute_returns_rows_as_dict(
 
 
 @pytest.mark.asyncio
+async def test_execute_closes_cursor_after_fetching_rows(repository, fake_cursor):
+    await repository.execute("SELECT * FROM users")
+
+    fake_cursor.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_execute_closes_cursor_even_when_fetchall_raises(fake_connection, fake_cursor):
+    fake_cursor.fetchall.side_effect = RuntimeError("boom")
+    repository = SqliteRepository([fake_connection])
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await repository.execute("SELECT * FROM users")
+
+    fake_cursor.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_execute_commits_and_returns_empty_list_when_no_result_set():
     cursor = MagicMock()
     cursor.description = None
+    cursor.close = AsyncMock()
     connection = MagicMock()
     connection.execute = AsyncMock(return_value=cursor)
     connection.commit = AsyncMock()
@@ -63,6 +83,7 @@ async def test_execute_commits_and_returns_empty_list_when_no_result_set():
     result = await repository.execute("DELETE FROM users WHERE id = ?", (1,))
 
     connection.commit.assert_awaited_once()
+    cursor.close.assert_awaited_once()
     assert result == []
 
 
@@ -88,6 +109,7 @@ async def test_concurrent_executes_never_share_the_same_connection_simultaneousl
             in_use.discard(connection_id)
             cursor = MagicMock()
             cursor.description = None
+            cursor.close = AsyncMock()
             return cursor
 
         return execute
