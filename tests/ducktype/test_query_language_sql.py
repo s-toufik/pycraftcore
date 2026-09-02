@@ -1,15 +1,15 @@
-from pycraftcore.query_language.sql.adapter import SqlExpressionHandler
-from pycraftcore.query_language.sql.factory import SqlHandlerFactory
-from pycraftcore.query_language.sql.sql_handler import SqlFactory, SqlHandler
+from pycraftcore.query_language.adapter.sql import SqlExpressionHandler
+from pycraftcore.query_language.adapter.sql import SqlHandlerFactory
+from pycraftcore.query_language.port.query_handler import QueryFactory, QueryHandler
 
 
 def test_sql_handler_factory_satisfies_sql_factory():
-    factory: SqlFactory = SqlHandlerFactory()
+    factory: QueryFactory = SqlHandlerFactory()
 
-    assert isinstance(factory, SqlFactory)
+    assert isinstance(factory, QueryFactory)
 
 
 def test_sql_expression_handler_satisfies_sql_handler():
-    handler: SqlHandler = SqlExpressionHandler("SELECT * FROM users", "sqlite")
+    handler: QueryHandler = SqlExpressionHandler("SELECT * FROM users", "sqlite")
 
-    assert isinstance(handler, SqlHandler)
+    assert isinstance(handler, QueryHandler)
