@@ -1,12 +1,9 @@
 import ssl
 from collections.abc import Callable, Mapping
-from datetime import timedelta
 from functools import cached_property
-from types import CoroutineType
 from typing import Any, Self
 
 import orjson
-from aiobreaker import CircuitBreaker, CircuitBreakerListener, CircuitBreakerState
 from httpx import (
     AsyncBaseTransport,
     AsyncClient,
@@ -15,13 +12,6 @@ from httpx import (
     Request,
     Response,
     Timeout,
-)
-from tenacity import (
-    AsyncRetrying,
-    RetryCallState,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
 )
 
 from pycraftcore.http.configuration.http_client_configuration import HttpClientSettings
@@ -44,19 +34,19 @@ class HttpxClientFactory:
         self._http_transport: AsyncBaseTransport | None = http_transport
 
     async def __aenter__(self) -> Self:
-        _ = self._client_instance
+        await self.start()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         await self.close()
 
-    async def start(self) -> None: ...
+    async def start(self) -> None:
+        _ = self._client_instance
 
     async def close(self) -> None:
-        for attribute in ("_client_instance", "_resilient_client_instance"):
-            client: AsyncClient | None = self.__dict__.get(attribute)
-            if client is not None and not client.is_closed:
-                await client.aclose()
+        client: AsyncClient | None = self.__dict__.pop("_client_instance", None)
+        if client is not None and not client.is_closed:
+            await client.aclose()
 
     def create_client(self) -> AsyncHttpClient:
         return HttpxClient(self._client_instance)
@@ -67,25 +57,7 @@ class HttpxClientFactory:
             base_url=self._http_client_settings.client_params.base_url or "",
             timeout=self._timeout(),
             limits=self._limits(),
-            transport=self._base_transport(),
-            event_hooks=self._event_hooks(),
-        )
-
-    @property
-    def resilient_client_instance(self) -> AsyncClient:
-        return self._resilient_client_instance
-
-    @cached_property
-    def _resilient_client_instance(self) -> AsyncClient:
-        return AsyncClient(
-            base_url=self._http_client_settings.client_params.base_url or "",
-            timeout=self._timeout(),
-            limits=self._limits(),
-            transport=ResilientTransport(
-                http_client_settings=self._http_client_settings,
-                logger=self._logger,
-                transport=self._base_transport(),
-            ),
+            transport=self._transport(),
             event_hooks=self._event_hooks(),
         )
 
@@ -99,12 +71,12 @@ class HttpxClientFactory:
     def _timeout(self) -> Timeout:
         return Timeout(self._http_client_settings.limits.timeout)
 
-    def _base_transport(self) -> AsyncBaseTransport:
+    def _transport(self) -> AsyncBaseTransport:
         if self._http_transport is None:
             self._http_transport = AsyncHTTPTransport(
-                retries=self._http_client_settings.retry.retry_count,
-                verify=self._create_ssl_from_certificate(),
+                retries=0, verify=self._create_ssl_from_certificate()
             )
+
         return self._http_transport
 
     def _event_hooks(self) -> dict[str, list[Any]] | None:
@@ -118,9 +90,10 @@ class HttpxClientFactory:
             if tls_cipher_spec := self._http_client_settings.security.tls_cipher_spec:
                 context.set_ciphers(tls_cipher_spec)
             return context
-        return False
 
-    def _event(self) -> list[Callable[..., CoroutineType[Any, Any, None]]]:
+        return True
+
+    def _event(self) -> list[Callable[..., Any]]:
         return [self._event_log]
 
     async def _event_log(self, request: Request) -> None:
@@ -147,7 +120,7 @@ class HttpxClient:
         response.raise_for_status()
 
         content_type: str = response.headers.get("content-type", "")
-        if "application/json" in content_type:
+        if "json" in content_type:
             return orjson.loads(response.content)
 
         return response.text
@@ -169,80 +142,3 @@ class HttpxClient:
         headers: Mapping[str, str] | None = None,
     ) -> Any:
         return await self._request(HttpMethod.POST.value, endpoint, json=body, headers=headers)
-
-
-class BreakerLogger(CircuitBreakerListener):
-    def __init__(self, logger: Logger | None = None) -> None:
-        self._logger: Logger | None = logger
-        self._last_exception: Exception | None = None
-
-    def failure(self, breaker: CircuitBreaker, exception: Exception) -> None:
-        self._last_exception: Exception = exception
-        if self._logger:
-            self._logger.warning(
-                f"Circuit breaker failure {breaker.fail_counter}/{breaker.fail_max} recorded: {exception!r}"
-            )
-
-    def success(self, breaker: CircuitBreaker) -> None:
-        self._last_exception: Exception | None = None
-
-    def state_change(
-        self,
-        breaker: CircuitBreaker,
-        old: CircuitBreakerState,
-        new: CircuitBreakerState,
-    ) -> None:
-        if self._logger:
-            self._logger.info(f"Circuit breaker state change from {old.name} to {new.name}")
-        if new == CircuitBreakerState.OPEN and self._logger:
-            self._logger.error(
-                f"Circuit breaker is OPEN - {breaker.fail_counter} consecutive failures reached "
-                f"over maximum failure threshold of {breaker.fail_max}. Last exception: {self._last_exception!r}. "
-                f"Breaker will reset in {breaker.timeout_duration.total_seconds():.1f} seconds."
-            )
-
-
-class ResilientTransport(AsyncBaseTransport):
-    def __init__(
-        self,
-        http_client_settings: HttpClientSettings,
-        logger: Logger | None = None,
-        transport: AsyncBaseTransport | None = None,
-    ) -> None:
-        self._http_client_settings = http_client_settings or HttpClientSettings()
-        self._logger: Logger | None = logger
-        self._transport: AsyncBaseTransport = transport or AsyncHTTPTransport()
-        self._breaker_logger: BreakerLogger = BreakerLogger(logger)
-        self._breaker: CircuitBreaker = CircuitBreaker(
-            fail_max=self._http_client_settings.circuit_breaker.failure_threshold,
-            timeout_duration=timedelta(
-                seconds=self._http_client_settings.circuit_breaker.recovery_timeout
-            ),
-            listeners=[self._breaker_logger],
-        )
-        self._retryer: AsyncRetrying = AsyncRetrying(
-            retry=retry_if_exception_type(self._http_client_settings.retry.retry_on),
-            stop=stop_after_attempt(self._http_client_settings.retry.retry_count),
-            wait=wait_exponential(
-                multiplier=self._http_client_settings.retry.retry_delay, min=1, max=8
-            ),
-            reraise=True,
-            before_sleep=self._log_retry,
-        )
-
-    def _log_retry(self, retry_state: RetryCallState) -> None:
-        exception = retry_state.outcome.exception() if retry_state.outcome else None
-        if self._logger and retry_state.next_action:
-            self._logger.warning(
-                f"Retry #{retry_state.attempt_number} failed due to {exception!r}; "
-                f"retrying in {retry_state.next_action.sleep:.1f} seconds..."
-            )
-
-    async def _retry_execute(self, request: Request) -> Response:
-        return await self._retryer(self._transport.handle_async_request, request)
-
-    async def handle_async_request(self, request: Request) -> Response:
-        return await self._breaker.call_async(self._retry_execute, request)
-
-    async def aclose(self) -> None:
-        await self._transport.aclose()

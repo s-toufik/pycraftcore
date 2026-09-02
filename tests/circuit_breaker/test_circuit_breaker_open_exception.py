@@ -1,6 +1,6 @@
 import pytest
 
-from pycraftcore.http.exception.circuit_breaker_open_exception import (
+from pycraftcore.circuit_breaker.exception.circuit_breaker_open_exception import (
     CircuitBreakerOpenException,
 )
 

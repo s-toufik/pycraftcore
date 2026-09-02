@@ -1,6 +1,6 @@
 import ssl
 from collections.abc import Mapping
-from typing import Any, NoReturn, Self
+from typing import Any, Self
 
 import aiohttp
 import orjson
@@ -36,7 +36,7 @@ class AioHttpClient:
             response.raise_for_status()
             content_type: Any = response.headers.get("Content-Type", "")
 
-            if "application/json" in content_type:
+            if "json" in content_type:
                 return orjson.loads(await response.read())
 
             return await response.text()
@@ -64,8 +64,8 @@ class AioHttpClient:
     def _build_url(self, endpoint: str) -> str:
         if self._base_url:
             return self._base_url.rstrip("/") + "/" + endpoint.lstrip("/")
-        else:
-            return endpoint.lstrip("/")
+
+        return endpoint
 
 
 class AioHttpClientFactory:
@@ -92,10 +92,13 @@ class AioHttpClientFactory:
         await self.start()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         await self.close()
 
     async def start(self) -> None:
+        if self._session is not None and not self._session.closed:
+            return
+
         await self._start_connector()
         await self._start_session()
 
@@ -153,10 +156,5 @@ class AioHttpClientFactory:
             if tls_cipher_spec := self._http_client_settings.security.tls_cipher_spec:
                 context.set_ciphers(tls_cipher_spec)
             return context
-        return False
 
-    @property
-    def resilient_client_instance(self) -> NoReturn:
-        raise NotImplementedError(
-            "For aiohttp adapter compose the resilient client using the resilient implementation"
-        )
+        return True
