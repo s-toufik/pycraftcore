@@ -41,13 +41,24 @@ class TelemetryConnector(BaseConnector):
     port: int
 
 
-ConnectorTyping = ApiConnector | FileConnector | DatabaseConnector | TelemetryConnector
+@dataclass(slots=True)
+class McpConnector(BaseConnector):
+    base_url: str
+    timeout: int
+    transport: Literal["sse", "streamable_http"] = "streamable_http"
+    certificate: str | None = field(default=None)
+
+
+ConnectorTyping = (
+    ApiConnector | FileConnector | DatabaseConnector | TelemetryConnector | McpConnector
+)
 
 _CONNECTOR_CLASS_BY_TYPE: dict[ConnectorType, type[ConnectorTyping]] = {
     ConnectorType.api: ApiConnector,
     ConnectorType.database: DatabaseConnector,
     ConnectorType.file: FileConnector,
     ConnectorType.telemetry: TelemetryConnector,
+    ConnectorType.mcp: McpConnector,
 }
 
 
@@ -79,6 +90,8 @@ class ConnectorRegistry:
     def __getitem__(
         self, kind: Literal[ConnectorType.telemetry]
     ) -> Mapping[str, TelemetryConnector]: ...
+    @overload
+    def __getitem__(self, kind: Literal[ConnectorType.mcp]) -> Mapping[str, McpConnector]: ...
 
     def __getitem__(self, kind: ConnectorType) -> Mapping[str, ConnectorTyping]:
         return self.by_type.get(kind, {})
@@ -94,6 +107,9 @@ class ConnectorRegistry:
 
     def telemetry(self, name: str) -> TelemetryConnector:
         return self._get(ConnectorType.telemetry, name, TelemetryConnector)
+
+    def mcp(self, name: str) -> McpConnector:
+        return self._get(ConnectorType.mcp, name, McpConnector)
 
     def _get[T: ConnectorTyping](self, kind: ConnectorType, name: str, expected: type[T]) -> T:
         try:
