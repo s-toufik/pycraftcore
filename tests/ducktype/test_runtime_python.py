@@ -1,6 +1,6 @@
-from pycraftcore.runtime.code import Code, CodeFactory
-from pycraftcore.runtime.python.adapter import SafeCode
-from pycraftcore.runtime.python.factory import SafeCodeFactory
+from pycraftcore.runtime.port.code import Code, CodeFactory
+from pycraftcore.runtime.adapter.python.adapter import SafeCode
+from pycraftcore.runtime.adapter.python.factory import SafeCodeFactory
 
 
 def test_safe_code_factory_satisfies_code_factory():
