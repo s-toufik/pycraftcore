@@ -36,7 +36,9 @@ def test_rejects_non_positive_retry_delay():
 
 
 def test_rejects_max_retry_delay_below_retry_delay():
-    with pytest.raises(ValueError, match="max_retry_delay must be greater than or equal to retry_delay"):
+    with pytest.raises(
+        ValueError, match="max_retry_delay must be greater than or equal to retry_delay"
+    ):
         RetrySettings(retry_delay=5, max_retry_delay=1)
 
 
@@ -52,7 +54,9 @@ def test_rejects_negative_jitter():
 
 
 def test_rejects_empty_retry_on_when_should_retry_not_provided():
-    with pytest.raises(ValueError, match="retry_on cannot be empty when should_retry is not provided"):
+    with pytest.raises(
+        ValueError, match="retry_on cannot be empty when should_retry is not provided"
+    ):
         RetrySettings(retry_on=())
 
 

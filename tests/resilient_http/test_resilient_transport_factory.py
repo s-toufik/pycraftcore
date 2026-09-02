@@ -151,10 +151,17 @@ async def test_integration_retries_transient_failures_then_succeeds():
 
     settings = ResilientHttpSettings(
         retry=RetrySettings(
-            retry_count=3, retry_delay=0.001, max_retry_delay=0.002, jitter=0.0, should_retry=is_retryable
+            retry_count=3,
+            retry_delay=0.001,
+            max_retry_delay=0.002,
+            jitter=0.0,
+            should_retry=is_retryable,
         ),
         circuit_breaker=CircuitBreakerSettings(
-            failure_threshold=5, recovery_timeout=1, is_excluded=is_business_error, name="llm-gateway"
+            failure_threshold=5,
+            recovery_timeout=1,
+            is_excluded=is_business_error,
+            name="llm-gateway",
         ),
     )
     factory = ResilientTransportFactory(settings=settings)
@@ -182,7 +189,11 @@ async def test_integration_request_body_replayed_correctly_across_retries():
 
     settings = ResilientHttpSettings(
         retry=RetrySettings(
-            retry_count=3, retry_delay=0.001, max_retry_delay=0.002, jitter=0.0, should_retry=is_retryable
+            retry_count=3,
+            retry_delay=0.001,
+            max_retry_delay=0.002,
+            jitter=0.0,
+            should_retry=is_retryable,
         ),
     )
     factory = ResilientTransportFactory(settings=settings)
@@ -205,7 +216,11 @@ async def test_integration_business_error_is_not_retried_and_does_not_trip_break
 
     settings = ResilientHttpSettings(
         retry=RetrySettings(
-            retry_count=3, retry_delay=0.001, max_retry_delay=0.002, jitter=0.0, should_retry=is_retryable
+            retry_count=3,
+            retry_delay=0.001,
+            max_retry_delay=0.002,
+            jitter=0.0,
+            should_retry=is_retryable,
         ),
         circuit_breaker=CircuitBreakerSettings(failure_threshold=1, is_excluded=is_business_error),
     )
@@ -228,7 +243,11 @@ async def test_integration_circuit_breaker_opens_and_rejects_subsequent_calls():
 
     settings = ResilientHttpSettings(
         retry=RetrySettings(
-            retry_count=0, retry_delay=0.001, max_retry_delay=0.002, jitter=0.0, should_retry=is_retryable
+            retry_count=0,
+            retry_delay=0.001,
+            max_retry_delay=0.002,
+            jitter=0.0,
+            should_retry=is_retryable,
         ),
         circuit_breaker=CircuitBreakerSettings(
             failure_threshold=1, recovery_timeout=10, is_excluded=is_business_error
@@ -254,7 +273,11 @@ async def test_integration_breaker_state_is_shared_across_clients_from_same_fact
 
     settings = ResilientHttpSettings(
         retry=RetrySettings(
-            retry_count=0, retry_delay=0.001, max_retry_delay=0.002, jitter=0.0, should_retry=is_retryable
+            retry_count=0,
+            retry_delay=0.001,
+            max_retry_delay=0.002,
+            jitter=0.0,
+            should_retry=is_retryable,
         ),
         circuit_breaker=CircuitBreakerSettings(failure_threshold=1, is_excluded=is_business_error),
     )

@@ -9,7 +9,7 @@ from string import Template
 
 from pycraftcore.runtime.configuration.schema import CodeStdout
 
-_SAFE_BUILTINS: tuple[str, ...] = (
+_PYTHON_SAFE_BUILTINS: tuple[str, ...] = (
     "abs",
     "all",
     "any",
@@ -37,7 +37,7 @@ _SAFE_BUILTINS: tuple[str, ...] = (
     "zip",
 )
 
-ALLOWLIST: frozenset[str] = frozenset(
+PYTHON_ALLOWLIST: frozenset[str] = frozenset(
     {
         "math",
         "statistics",
@@ -53,7 +53,7 @@ ALLOWLIST: frozenset[str] = frozenset(
     }
 )
 
-_RUNNER_TEMPLATE: Template = Template(
+_PYTHON_RUNNER_TEMPLATE: Template = Template(
     textwrap.dedent("""\
 import builtins
 import json
@@ -124,7 +124,7 @@ print(
 )
 
 
-class SafeCode:
+class PythonSafeCode:
     def __init__(
         self,
         code: str,
@@ -133,14 +133,14 @@ class SafeCode:
         max_memory_mb: int | None = 256,
     ) -> None:
         self._code = code
-        self._code_template = code_template or _RUNNER_TEMPLATE
+        self._code_template = code_template or _PYTHON_RUNNER_TEMPLATE
         self._code_timeout = code_timeout
         self._max_memory_mb = max_memory_mb
 
     def _parse_code(self) -> str:
         return self._code_template.substitute(
-            allowlist=repr(sorted(ALLOWLIST)),
-            safe_builtins=repr(_SAFE_BUILTINS),
+            allowlist=repr(sorted(PYTHON_ALLOWLIST)),
+            safe_builtins=repr(_PYTHON_SAFE_BUILTINS),
             code=repr(self._code),
             max_memory_mb=self._max_memory_mb,
         )

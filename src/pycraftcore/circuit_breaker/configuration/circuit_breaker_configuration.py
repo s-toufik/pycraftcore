@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 @dataclass(slots=True)
 class CircuitBreakerSettings:
-
     failure_threshold: int = 3
     recovery_timeout: float = 5.0
     excluded_exceptions: tuple[type[Exception], ...] = ()

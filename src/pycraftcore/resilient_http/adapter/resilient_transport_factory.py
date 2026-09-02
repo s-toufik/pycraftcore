@@ -17,7 +17,6 @@ from pycraftcore.telemetry.port.telemetry import TelemetryTracer
 
 
 class ResilientTransportFactory:
-
     def __init__(
         self,
         settings: ResilientHttpSettings | None = None,

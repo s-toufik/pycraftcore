@@ -9,7 +9,6 @@ from pycraftcore.telemetry.port.telemetry import TelemetryTracer
 
 
 class TransportStatusError(HTTPStatusError):
-
     def __init__(self, request: Request, response: Response) -> None:
         super().__init__(
             f"HTTP {response.status_code} for {request.url}",
@@ -19,7 +18,6 @@ class TransportStatusError(HTTPStatusError):
 
 
 class ResilientTransport(AsyncBaseTransport):
-   
     def __init__(
         self,
         transport: AsyncBaseTransport,

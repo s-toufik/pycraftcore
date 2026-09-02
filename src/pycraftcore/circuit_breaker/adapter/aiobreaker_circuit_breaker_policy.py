@@ -70,7 +70,6 @@ class CircuitBreakerLogger(CircuitBreakerListener):
 
 
 class AioBreakerCircuitBreakerPolicy:
-
     def __init__(
         self,
         settings: CircuitBreakerSettings | None = None,

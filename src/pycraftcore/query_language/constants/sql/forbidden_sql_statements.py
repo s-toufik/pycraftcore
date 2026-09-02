@@ -1,6 +1,6 @@
 from sqlglot import exp
 
-FORBIDDEN_EXPRESSIONS: tuple[type[exp.Expression], ...] = (
+FORBIDDEN_SQL_EXPRESSIONS: tuple[type[exp.Expression], ...] = (
     exp.Insert,
     exp.Update,
     exp.Delete,

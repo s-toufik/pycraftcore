@@ -1,10 +1,10 @@
 from sqlglot import ErrorLevel, Expr, errors, parse
 
-from pycraftcore.query_language.constants.sql.allowed_root_statements import (
-    ALLOWED_ROOT_STATEMENTS,
+from pycraftcore.query_language.constants.sql.allowed_sql_root_statements import (
+    ALLOWED_SQL_ROOT_STATEMENTS,
 )
-from pycraftcore.query_language.constants.sql.forbidden_statements import (
-    FORBIDDEN_EXPRESSIONS,
+from pycraftcore.query_language.constants.sql.forbidden_sql_statements import (
+    FORBIDDEN_SQL_EXPRESSIONS,
 )
 
 
@@ -29,12 +29,12 @@ class SqlExpressionHandler:
     def validate_safe_query(self, expressions: list[Expr] | None = None) -> None:
         checked: list[Expr] = expressions or self.parse()
         for expression in checked:
-            if not isinstance(expression, ALLOWED_ROOT_STATEMENTS):
+            if not isinstance(expression, ALLOWED_SQL_ROOT_STATEMENTS):
                 raise ValueError(
                     f"SQL Expression contains forbidden statement: {type(expression).__name__}"
                 )
             for node in expression.walk():
-                if isinstance(node, FORBIDDEN_EXPRESSIONS):
+                if isinstance(node, FORBIDDEN_SQL_EXPRESSIONS):
                     raise ValueError(
                         f"SQL Expression contains forbidden statement: {type(node).__name__}"
                     )
