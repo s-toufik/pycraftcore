@@ -6,6 +6,7 @@ from pycraftcore.application_configuration.model.connector import (
     ConnectorRegistry,
     DatabaseConnector,
     FileConnector,
+    McpConnector,
     TelemetryConnector,
 )
 from pycraftcore.authentication.model.auth_type import AuthType
@@ -64,6 +65,32 @@ def test_telemetry_connector_holds_host_and_port():
     assert connector.port == 4317
 
 
+def test_mcp_connector_defaults_transport_to_streamable_http_and_certificate_to_none():
+    connector = McpConnector(
+        name="tools",
+        type=ConnectorType.mcp,
+        auth=NoAuth(type=AuthType.none),
+        base_url="https://mcp.test.com",
+        timeout=5,
+    )
+
+    assert connector.transport == "streamable_http"
+    assert connector.certificate is None
+
+
+def test_mcp_connector_accepts_sse_transport():
+    connector = McpConnector(
+        name="tools",
+        type=ConnectorType.mcp,
+        auth=NoAuth(type=AuthType.none),
+        base_url="https://mcp.test.com",
+        timeout=5,
+        transport="sse",
+    )
+
+    assert connector.transport == "sse"
+
+
 def make_database_connector(name: str = "db") -> DatabaseConnector:
     return DatabaseConnector(
         name=name,
@@ -92,6 +119,22 @@ def test_registry_getitem_returns_the_bucket_for_a_type():
 
     assert registry[ConnectorType.database] == {"db": connector}
     assert registry[ConnectorType.api] == {}
+
+
+def test_registry_returns_the_typed_mcp_connector_by_name():
+    connector = McpConnector(
+        name="tools",
+        type=ConnectorType.mcp,
+        auth=NoAuth(type=AuthType.none),
+        base_url="https://mcp.test.com",
+        timeout=5,
+    )
+    registry = ConnectorRegistry({ConnectorType.mcp: {"tools": connector}})
+
+    result = registry.mcp("tools")
+
+    assert isinstance(result, McpConnector)
+    assert result.base_url == "https://mcp.test.com"
 
 
 def test_registry_lookup_of_missing_connector_raises_key_error():

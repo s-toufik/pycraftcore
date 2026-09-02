@@ -13,6 +13,8 @@ application_configuration:
       postgres: ${connector.postgres}
     telemetry:
       open_telemetry: ${connector.telemetry}
+    mcp:
+      tools: ${connector.tools}
 
   operation:
     dummy_api_1_op: ${operation.dummy_api_1_op}

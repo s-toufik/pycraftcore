@@ -7,3 +7,4 @@ class ConnectorType(Enum):
     cache = "cache"
     file = "file"
     telemetry = "telemetry"
+    mcp = "mcp"
