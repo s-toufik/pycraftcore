@@ -134,7 +134,9 @@ async def test_error_response_body_is_drained_before_being_returned():
     # Draining before returning matters for HTTP/1.1 keep-alive: the pool
     # must not reuse a connection with an unread response still on the wire.
     stream = TrackingByteStream(b'{"error": "boom"}')
-    error_response = httpx.Response(500, headers={"content-type": "application/json"}, stream=stream)
+    error_response = httpx.Response(
+        500, headers={"content-type": "application/json"}, stream=stream
+    )
 
     wrapped = ScriptedTransport([error_response])
     transport = ResilientTransport(
@@ -174,7 +176,11 @@ async def test_successful_streaming_response_body_is_not_eagerly_drained():
 @pytest.mark.asyncio
 async def test_retries_transient_failure_and_returns_eventual_success():
     wrapped = ScriptedTransport(
-        [httpx.Response(500, json={}), httpx.Response(500, json={}), httpx.Response(200, json={"ok": True})]
+        [
+            httpx.Response(500, json={}),
+            httpx.Response(500, json={}),
+            httpx.Response(200, json={"ok": True}),
+        ]
     )
     transport = ResilientTransport(
         transport=wrapped,
@@ -194,7 +200,15 @@ async def test_retries_exhausted_returns_final_error_response_not_raised():
     transport = ResilientTransport(
         transport=wrapped,
         circuit_breaker=FakeCircuitBreaker(),
-        retry_policy=TenacityRetryPolicy(RetrySettings(retry_count=3, retry_delay=0.001, max_retry_delay=0.002, jitter=0.0, should_retry=is_retryable)),
+        retry_policy=TenacityRetryPolicy(
+            RetrySettings(
+                retry_count=3,
+                retry_delay=0.001,
+                max_retry_delay=0.002,
+                jitter=0.0,
+                should_retry=is_retryable,
+            )
+        ),
     )
 
     response = await transport.handle_async_request(make_request())
@@ -221,7 +235,11 @@ async def test_business_error_is_not_retried():
 @pytest.mark.asyncio
 async def test_request_body_is_replayed_identically_across_retries():
     wrapped = ScriptedTransport(
-        [httpx.Response(500, json={}), httpx.Response(500, json={}), httpx.Response(200, json={"ok": True})]
+        [
+            httpx.Response(500, json={}),
+            httpx.Response(500, json={}),
+            httpx.Response(200, json={"ok": True}),
+        ]
     )
     transport = ResilientTransport(
         transport=wrapped,
@@ -277,10 +295,18 @@ async def test_integration_real_breaker_opens_after_exhausted_retries():
     transport = ResilientTransport(
         transport=wrapped,
         circuit_breaker=AioBreakerCircuitBreakerPolicy(
-            CircuitBreakerSettings(failure_threshold=1, recovery_timeout=10, is_excluded=is_business_error)
+            CircuitBreakerSettings(
+                failure_threshold=1, recovery_timeout=10, is_excluded=is_business_error
+            )
         ),
         retry_policy=TenacityRetryPolicy(
-            RetrySettings(retry_count=1, retry_delay=0.001, max_retry_delay=0.002, jitter=0.0, should_retry=is_retryable)
+            RetrySettings(
+                retry_count=1,
+                retry_delay=0.001,
+                max_retry_delay=0.002,
+                jitter=0.0,
+                should_retry=is_retryable,
+            )
         ),
     )
 

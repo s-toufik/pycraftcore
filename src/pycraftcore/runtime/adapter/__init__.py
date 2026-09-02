@@ -1,3 +1,3 @@
-from pycraftcore.runtime.adapter.python import SafeCode, SafeCodeFactory
+from pycraftcore.runtime.adapter.python import PythonSafeCode, PythonSafeCodeFactory
 
-__all__ = ["SafeCode", "SafeCodeFactory"]
+__all__ = ["PythonSafeCode", "PythonSafeCodeFactory"]

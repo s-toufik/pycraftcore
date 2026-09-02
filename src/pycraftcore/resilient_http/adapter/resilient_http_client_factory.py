@@ -21,7 +21,6 @@ from pycraftcore.telemetry.port.telemetry import TelemetryTracer
 
 
 class ResilientHttpClientFactory:
-
     def __init__(
         self,
         http_factory: AsyncHttpFactory,

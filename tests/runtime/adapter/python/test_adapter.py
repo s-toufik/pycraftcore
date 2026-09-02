@@ -5,23 +5,23 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from pycraftcore.runtime.adapter.python.adapter import ALLOWLIST, SafeCode
+from pycraftcore.runtime.adapter.python.adapter import PYTHON_ALLOWLIST, PythonSafeCode
 
 
 def test_parse_code_embeds_sorted_allowlist_and_repr_of_code():
-    safe_code = SafeCode(code="result = 1 + 1", max_memory_mb=128)
+    safe_code = PythonSafeCode(code="result = 1 + 1", max_memory_mb=128)
 
     source = safe_code._parse_code()
 
     assert repr("result = 1 + 1") in source
     assert "_ALLOWED_IMPORTS = set(" in source
-    assert str(sorted(ALLOWLIST)) in source
+    assert str(sorted(PYTHON_ALLOWLIST)) in source
     assert "128" in source
 
 
 @pytest.mark.asyncio
 async def test_execute_runs_real_sandboxed_code_and_returns_json_result():
-    safe_code = SafeCode(code="result = 2 + 2", code_timeout=10)
+    safe_code = PythonSafeCode(code="result = 2 + 2", code_timeout=10)
 
     output = await safe_code.execute()
 
@@ -31,7 +31,7 @@ async def test_execute_runs_real_sandboxed_code_and_returns_json_result():
 
 @pytest.mark.asyncio
 async def test_execute_allows_defining_classes_in_sandboxed_code():
-    safe_code = SafeCode(
+    safe_code = PythonSafeCode(
         code=(
             "class Point:\n    def __init__(self, x):\n        self.x = x\nresult = Point(3).x\n"
         ),
@@ -46,7 +46,7 @@ async def test_execute_allows_defining_classes_in_sandboxed_code():
 
 @pytest.mark.asyncio
 async def test_execute_rejects_disallowed_imports():
-    safe_code = SafeCode(code="import os", code_timeout=10)
+    safe_code = PythonSafeCode(code="import os", code_timeout=10)
 
     output = await safe_code.execute()
 
@@ -56,7 +56,7 @@ async def test_execute_rejects_disallowed_imports():
 
 @pytest.mark.asyncio
 async def test_execute_requires_result_variable():
-    safe_code = SafeCode(code="x = 1", code_timeout=10)
+    safe_code = PythonSafeCode(code="x = 1", code_timeout=10)
 
     output = await safe_code.execute()
 
@@ -66,7 +66,7 @@ async def test_execute_requires_result_variable():
 
 @pytest.mark.asyncio
 async def test_execute_returns_timeout_message_on_timeout_expired():
-    safe_code = SafeCode(code="result = 1", code_timeout=5)
+    safe_code = PythonSafeCode(code="result = 1", code_timeout=5)
     fake_proc = MagicMock(kill=MagicMock(), wait=AsyncMock())
 
     with (
@@ -88,7 +88,7 @@ async def test_execute_returns_timeout_message_on_timeout_expired():
 
 @pytest.mark.asyncio
 async def test_execute_returns_subprocess_error_message_on_unexpected_exception():
-    safe_code = SafeCode(code="result = 1")
+    safe_code = PythonSafeCode(code="result = 1")
 
     with patch(
         "pycraftcore.runtime.adapter.python.adapter.asyncio.create_subprocess_exec",
@@ -103,7 +103,7 @@ async def test_execute_returns_subprocess_error_message_on_unexpected_exception(
 
 @pytest.mark.asyncio
 async def test_execute_on_nonzero_returncode_uses_stderr_text_when_present():
-    safe_code = SafeCode(code="result = 1")
+    safe_code = PythonSafeCode(code="result = 1")
     fake_proc = MagicMock(
         returncode=1,
         communicate=AsyncMock(return_value=(b"", b"Traceback (most recent call last)")),
@@ -120,7 +120,7 @@ async def test_execute_on_nonzero_returncode_uses_stderr_text_when_present():
 
 @pytest.mark.asyncio
 async def test_execute_on_nonzero_returncode_falls_back_to_returncode_when_stderr_empty():
-    safe_code = SafeCode(code="result = 1")
+    safe_code = PythonSafeCode(code="result = 1")
     fake_proc = MagicMock(
         returncode=7,
         communicate=AsyncMock(return_value=(b"", b"")),
@@ -137,7 +137,7 @@ async def test_execute_on_nonzero_returncode_falls_back_to_returncode_when_stder
 
 @pytest.mark.asyncio
 async def test_execute_on_nonzero_returncode_preserves_partial_stdout():
-    safe_code = SafeCode(code="result = 1")
+    safe_code = PythonSafeCode(code="result = 1")
     fake_proc = MagicMock(
         returncode=1,
         communicate=AsyncMock(return_value=(b"partial output", b"boom")),
@@ -158,7 +158,7 @@ def test_build_environment_does_not_leak_arbitrary_host_variables():
         os.environ,
         {"PATH": "/usr/bin", "LANG": "en_US.UTF-8", "SECRET_TOKEN": "leak-me"},
     ):
-        environment = SafeCode._build_environment()
+        environment = PythonSafeCode._build_environment()
 
     assert environment == {
         "PATH": "/usr/bin",
@@ -172,7 +172,7 @@ def test_build_environment_does_not_leak_arbitrary_host_variables():
 
 @pytest.mark.asyncio
 async def test_execute_passes_isolated_environment_to_subprocess():
-    safe_code = SafeCode(code="result = 1", code_timeout=10)
+    safe_code = PythonSafeCode(code="result = 1", code_timeout=10)
     fake_proc = MagicMock(
         returncode=0,
         communicate=AsyncMock(return_value=(b'{"result": 1}', b"")),
@@ -193,7 +193,7 @@ async def test_execute_passes_isolated_environment_to_subprocess():
 
 @pytest.mark.asyncio
 async def test_execute_falls_back_to_sync_subprocess_when_event_loop_lacks_support():
-    safe_code = SafeCode(code="result = 2 + 2", code_timeout=10)
+    safe_code = PythonSafeCode(code="result = 2 + 2", code_timeout=10)
 
     with patch(
         "pycraftcore.runtime.adapter.python.adapter.asyncio.create_subprocess_exec",
@@ -207,7 +207,7 @@ async def test_execute_falls_back_to_sync_subprocess_when_event_loop_lacks_suppo
 
 @pytest.mark.asyncio
 async def test_execute_sync_fallback_does_not_swap_stdout_and_stderr():
-    safe_code = SafeCode(code="result = 1", code_timeout=10)
+    safe_code = PythonSafeCode(code="result = 1", code_timeout=10)
     fake_completed_process = MagicMock(returncode=0, stdout=b'{"result": 1}', stderr=b"")
 
     with (
@@ -228,7 +228,7 @@ async def test_execute_sync_fallback_does_not_swap_stdout_and_stderr():
 
 @pytest.mark.asyncio
 async def test_execute_sync_fallback_on_nonzero_returncode_does_not_raise():
-    safe_code = SafeCode(code="raise ValueError(1)", code_timeout=10)
+    safe_code = PythonSafeCode(code="raise ValueError(1)", code_timeout=10)
     fake_completed_process = MagicMock(returncode=1, stdout=b"", stderr=b"Traceback: ValueError")
 
     with (
@@ -249,7 +249,7 @@ async def test_execute_sync_fallback_on_nonzero_returncode_does_not_raise():
 
 @pytest.mark.asyncio
 async def test_execute_sync_fallback_returns_timeout_message_on_timeout_expired():
-    safe_code = SafeCode(code="result = 1", code_timeout=5)
+    safe_code = PythonSafeCode(code="result = 1", code_timeout=5)
 
     with (
         patch(
@@ -270,15 +270,15 @@ async def test_execute_sync_fallback_returns_timeout_message_on_timeout_expired(
 @pytest.mark.asyncio
 async def test_execute_always_removes_temporary_script(tmp_path):
     created_paths = []
-    original_write = SafeCode._write_temporary_script
+    original_write = PythonSafeCode._write_temporary_script
 
     def spying_write(runner_src):
         path = original_write(runner_src)
         created_paths.append(path)
         return path
 
-    safe_code = SafeCode(code="result = 1")
-    with patch.object(SafeCode, "_write_temporary_script", staticmethod(spying_write)):
+    safe_code = PythonSafeCode(code="result = 1")
+    with patch.object(PythonSafeCode, "_write_temporary_script", staticmethod(spying_write)):
         await safe_code.execute()
 
     assert created_paths
@@ -288,18 +288,18 @@ async def test_execute_always_removes_temporary_script(tmp_path):
 @pytest.mark.asyncio
 async def test_execute_removes_temporary_script_even_on_timeout(tmp_path):
     created_paths = []
-    original_write = SafeCode._write_temporary_script
+    original_write = PythonSafeCode._write_temporary_script
 
     def spying_write(runner_src):
         path = original_write(runner_src)
         created_paths.append(path)
         return path
 
-    safe_code = SafeCode(code="result = 1", code_timeout=5)
+    safe_code = PythonSafeCode(code="result = 1", code_timeout=5)
     fake_proc = MagicMock(kill=MagicMock(), wait=AsyncMock())
 
     with (
-        patch.object(SafeCode, "_write_temporary_script", staticmethod(spying_write)),
+        patch.object(PythonSafeCode, "_write_temporary_script", staticmethod(spying_write)),
         patch(
             "pycraftcore.runtime.adapter.python.adapter.asyncio.create_subprocess_exec",
             AsyncMock(return_value=fake_proc),

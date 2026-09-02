@@ -17,7 +17,6 @@ R = TypeVar("R")
 
 
 class TenacityRetryPolicy:
-
     def __init__(self, settings: RetrySettings | None = None, logger: Logger | None = None) -> None:
         self._settings: RetrySettings = settings or RetrySettings()
         self._logger: Logger | None = logger

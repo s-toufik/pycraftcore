@@ -6,7 +6,6 @@ R = TypeVar("R")
 
 
 class NullTelemetryTracer:
-
     def trace(
         self, span_name: str, static_attributes: dict[str, Any]
     ) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:

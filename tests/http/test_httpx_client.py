@@ -101,7 +101,9 @@ async def test_create_client_after_restart_is_usable():
         return httpx.Response(200, json={"ok": True})
 
     settings = HttpClientSettings(client_params=ClientSettings(base_url="https://api.test.com"))
-    factory = HttpxClientFactory(http_client_settings=settings, http_transport=httpx.MockTransport(handler))
+    factory = HttpxClientFactory(
+        http_client_settings=settings, http_transport=httpx.MockTransport(handler)
+    )
 
     await factory.start()
     await factory.close()

@@ -18,7 +18,6 @@ def default_circuit_breaker_settings() -> CircuitBreakerSettings:
 
 @dataclass(slots=True)
 class ResilientHttpSettings:
-    
     http: HttpClientSettings = field(default_factory=HttpClientSettings)
     retry: RetrySettings = field(default_factory=default_retry_settings)
     circuit_breaker: CircuitBreakerSettings = field(

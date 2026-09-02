@@ -14,7 +14,6 @@ R = TypeVar("R")
 
 
 class ResilientClient:
-   
     get: Callable[..., Awaitable[Any]]
     post: Callable[..., Awaitable[Any]]
 
