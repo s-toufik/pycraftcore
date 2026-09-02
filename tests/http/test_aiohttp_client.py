@@ -19,9 +19,11 @@ def test_build_url_normalization():
 
 
 def test_build_url_without_base_url():
+    # With no base_url, aiohttp needs an absolute URL: the endpoint passes through untouched.
     client = AioHttpClient(base_url="", session=MagicMock())
 
-    assert client._build_url("/users") == "users"
+    assert client._build_url("/users") == "/users"
+    assert client._build_url("https://api.test.com/users") == "https://api.test.com/users"
 
 
 @pytest.mark.asyncio
@@ -41,6 +43,20 @@ async def test_factory_start_creates_session_and_client():
 
     assert isinstance(client, AioHttpClient)
     assert isinstance(factory._session, aiohttp.ClientSession)
+
+    await factory.close()
+
+
+@pytest.mark.asyncio
+async def test_factory_start_is_idempotent_and_reuses_the_same_session():
+    factory = AioHttpClientFactory()
+
+    await factory.start()
+    first_session = factory._session
+    await factory.start()
+    second_session = factory._session
+
+    assert first_session is second_session
 
     await factory.close()
 
@@ -91,6 +107,24 @@ async def test_factory_close_closes_owned_connector():
 
 
 @pytest.mark.asyncio
+async def test_factory_can_be_restarted_after_close():
+    factory = AioHttpClientFactory()
+
+    await factory.start()
+    first_session = factory._session
+    await factory.close()
+
+    await factory.start()
+    second_session = factory._session
+
+    assert second_session is not None
+    assert second_session is not first_session
+    assert second_session.closed is False
+
+    await factory.close()
+
+
+@pytest.mark.asyncio
 async def test_factory_context_manager_starts_and_closes():
     async with AioHttpClientFactory() as factory:
         client = factory.create_client()
@@ -99,17 +133,12 @@ async def test_factory_context_manager_starts_and_closes():
     assert factory._session is None
 
 
-def test_factory_resilient_client_instance_not_implemented():
+def test_factory_create_ssl_from_certificate_defaults_to_verified_ssl_without_certificate():
+    # `True` tells aiohttp to use the default (verifying) SSL context; `False` would
+    # disable certificate verification entirely, so the secure default must be True.
     factory = AioHttpClientFactory()
 
-    with pytest.raises(NotImplementedError):
-        _ = factory.resilient_client_instance
-
-
-def test_factory_create_ssl_from_certificate_returns_false_without_certificate():
-    factory = AioHttpClientFactory()
-
-    assert factory._create_ssl_from_certificate() is False
+    assert factory._create_ssl_from_certificate() is True
 
 
 def test_factory_create_ssl_from_certificate_builds_context(tmp_path):
@@ -214,9 +243,10 @@ def test_slots_prevents_dynamic_attributes():
 async def test_post_delegation():
     client = AioHttpClient(base_url="https://api.test.com", session=MagicMock())
     mock_request = AsyncMock(return_value={"created": True})
-    AioHttpClient._request = mock_request
 
-    result = await client.post("/users", body={"name": "john"})
+    with patch.object(AioHttpClient, "_request", mock_request):
+        result = await client.post("/users", body={"name": "john"})
+
     assert result == {"created": True}
 
     mock_request.assert_awaited_once_with(

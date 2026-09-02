@@ -1,14 +1,14 @@
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable, Self
 
 
 @runtime_checkable
-class AsyncHttpFactory[T](Protocol):
+class AsyncHttpFactory(Protocol):
+
     async def start(self) -> None: ...
     async def close(self) -> None: ...
     def create_client(self) -> AsyncHttpClient: ...
-    @property
-    def resilient_client_instance(self) -> T: ...
-
+    async def __aenter__(self) -> Self: ...
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None: ...
 
 @runtime_checkable
 class AsyncHttpClient(Protocol):

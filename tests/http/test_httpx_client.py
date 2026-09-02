@@ -3,13 +3,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from pycraftcore.http.adapter.httpx_client import (
-    BreakerLogger,
-    HttpxClient,
-    HttpxClientFactory,
-    ResilientTransport,
-)
-from pycraftcore.http.configuration import HttpClientSettings
+from pycraftcore.http.adapter.httpx_client import HttpxClient, HttpxClientFactory
+from pycraftcore.http.configuration import ClientSettings, HttpClientSettings
+from pycraftcore.http.enum import HttpMethod
 
 
 @pytest.mark.asyncio
@@ -25,8 +21,7 @@ async def test_create_client_returns_httpx_client_wrapping_instance():
 
 @pytest.mark.asyncio
 async def test_client_instance_uses_configured_limits_and_base_url():
-    settings = HttpClientSettings()
-    settings.client_params.base_url = "https://api.test.com"
+    settings = HttpClientSettings(client_params=ClientSettings(base_url="https://api.test.com"))
     factory = HttpxClientFactory(http_client_settings=settings)
 
     instance = factory._client_instance
@@ -62,19 +57,63 @@ async def test_close_does_not_instantiate_a_client_that_was_never_used():
     await factory.close()
 
     assert "_client_instance" not in factory.__dict__
-    assert "_resilient_client_instance" not in factory.__dict__
 
 
 @pytest.mark.asyncio
-async def test_close_closes_both_plain_and_resilient_client_when_both_are_used():
+async def test_start_is_idempotent_and_reuses_the_same_client():
     factory = HttpxClientFactory()
-    plain = factory._client_instance
-    resilient = factory.resilient_client_instance
+
+    await factory.start()
+    first = factory._client_instance
+    await factory.start()
+    second = factory._client_instance
+
+    assert first is second
 
     await factory.close()
 
-    assert plain.is_closed is True
-    assert resilient.is_closed is True
+
+@pytest.mark.asyncio
+async def test_factory_can_be_restarted_after_close():
+    # Regression test: close() must evict the cached client so a later start()
+    # builds a fresh one instead of handing back an already-closed AsyncClient.
+    factory = HttpxClientFactory()
+
+    await factory.start()
+    first_client = factory._client_instance
+    await factory.close()
+
+    await factory.start()
+    second_client = factory._client_instance
+
+    assert second_client is not first_client
+    assert second_client.is_closed is False
+
+    await factory.close()
+
+
+@pytest.mark.asyncio
+async def test_create_client_after_restart_is_usable():
+    calls = {"n": 0}
+
+    async def handler(request):
+        calls["n"] += 1
+        return httpx.Response(200, json={"ok": True})
+
+    settings = HttpClientSettings(client_params=ClientSettings(base_url="https://api.test.com"))
+    factory = HttpxClientFactory(http_client_settings=settings, http_transport=httpx.MockTransport(handler))
+
+    await factory.start()
+    await factory.close()
+    await factory.start()
+
+    client = factory.create_client()
+    result = await client.get("/health")
+
+    assert result == {"ok": True}
+    assert calls["n"] == 1
+
+    await factory.close()
 
 
 @pytest.mark.asyncio
@@ -82,22 +121,19 @@ async def test_context_manager_starts_and_closes():
     async with HttpxClientFactory() as factory:
         client = factory.create_client()
         assert isinstance(client, HttpxClient)
+        underlying = factory._client_instance
 
-    assert factory._client_instance.is_closed is True
+    assert underlying.is_closed is True
+    # Accessing the cached_property again after close must not resurrect the
+    # closed client: close() evicts the cache so this rebuilds a fresh one.
+    assert "_client_instance" not in factory.__dict__
 
 
-def test_resilient_client_instance_uses_resilient_transport():
+def test_create_ssl_from_certificate_returns_true_without_certificate():
+    # `True` tells httpx to use the default (verifying) SSL context.
     factory = HttpxClientFactory()
 
-    instance = factory.resilient_client_instance
-
-    assert isinstance(instance._transport, ResilientTransport)
-
-
-def test_create_ssl_from_certificate_returns_false_without_certificate():
-    factory = HttpxClientFactory()
-
-    assert factory._create_ssl_from_certificate() is False
+    assert factory._create_ssl_from_certificate() is True
 
 
 def test_create_ssl_from_certificate_builds_context(tmp_path):
@@ -136,6 +172,23 @@ def test_create_ssl_from_certificate_sets_cipher_spec_when_provided(tmp_path):
         mock_ctx.set_ciphers.assert_called_once_with("TLS_AES_256_GCM_SHA384")
 
 
+def test_transport_defaults_to_a_working_http_transport_with_no_retries():
+    # retries=0 because tenacity owns retry policy at the resilient-client layer;
+    # the raw transport must not silently retry underneath it.
+    factory = HttpxClientFactory()
+
+    transport = factory._transport()
+
+    assert isinstance(transport, httpx.AsyncHTTPTransport)
+
+
+def test_transport_reuses_an_externally_provided_transport():
+    external_transport = MagicMock(spec=httpx.AsyncBaseTransport)
+    factory = HttpxClientFactory(http_transport=external_transport)
+
+    assert factory._transport() is external_transport
+
+
 @pytest.mark.asyncio
 async def test_event_log_logs_request_when_logger_provided():
     logger = MagicMock()
@@ -149,6 +202,24 @@ async def test_event_log_logs_request_when_logger_provided():
     logger.info.assert_called_once_with("Request GET https://api.test.com/health")
 
     await factory.close()
+
+
+@pytest.mark.asyncio
+async def test_event_log_does_nothing_without_logger():
+    factory = HttpxClientFactory()
+    request = MagicMock()
+
+    await factory._event_log(request)  # must not raise
+
+    await factory.close()
+
+
+def test_event_hooks_registers_request_logger():
+    factory = HttpxClientFactory()
+
+    hooks = factory._event_hooks()
+
+    assert hooks == {"request": [factory._event_log]}
 
 
 @pytest.mark.asyncio
@@ -214,124 +285,43 @@ async def test_request_raises_for_error_status():
         await client.get("/health")
 
 
-class TestBreakerLogger:
-    def test_failure_stores_exception_and_logs(self):
-        logger = MagicMock()
-        breaker_logger = BreakerLogger(logger)
-        breaker = MagicMock(fail_counter=1, fail_max=3)
-        exception = ValueError("boom")
-
-        breaker_logger.failure(breaker, exception)
-
-        assert breaker_logger._last_exception is exception
-        logger.warning.assert_called_once()
-
-    def test_success_clears_last_exception(self):
-        breaker_logger = BreakerLogger()
-        breaker_logger._last_exception = ValueError("boom")
-
-        breaker_logger.success(MagicMock())
-
-        assert breaker_logger._last_exception is None
-
-    def test_state_change_logs_info(self):
-        logger = MagicMock()
-        breaker_logger = BreakerLogger(logger)
-        old_state = MagicMock(name="CLOSED")
-        old_state.name = "CLOSED"
-        new_state = MagicMock(name="HALF_OPEN")
-        new_state.name = "HALF_OPEN"
-
-        breaker_logger.state_change(MagicMock(), old_state, new_state)
-
-        logger.info.assert_called_once()
-        logger.error.assert_not_called()
-
-    def test_state_change_logs_error_when_opening(self):
-        from aiobreaker import CircuitBreakerState
-
-        logger = MagicMock()
-        breaker_logger = BreakerLogger(logger)
-        breaker = MagicMock(fail_counter=3, fail_max=3)
-        breaker.timeout_duration.total_seconds.return_value = 30.0
-        old_state = MagicMock(name="CLOSED")
-        old_state.name = "CLOSED"
-
-        breaker_logger.state_change(breaker, old_state, CircuitBreakerState.OPEN)
-
-        logger.error.assert_called_once()
-
-
 @pytest.mark.asyncio
-async def test_resilient_transport_delegates_through_breaker_and_retry():
-    inner_transport = AsyncMock()
+async def test_get_delegates_with_expected_method_and_params():
+    inner_client = AsyncMock()
     response = MagicMock()
-    inner_transport.handle_async_request = AsyncMock(return_value=response)
+    response.headers = {"content-type": "application/json"}
+    response.content = b"{}"
+    inner_client.request = AsyncMock(return_value=response)
 
-    settings = HttpClientSettings()
-    transport = ResilientTransport(http_client_settings=settings, transport=inner_transport)
+    client = HttpxClient(inner_client)
 
-    request = MagicMock()
-    result = await transport.handle_async_request(request)
+    await client.get("/health", params={"q": "1"}, headers={"X-A": "b"})
 
-    assert result is response
-    inner_transport.handle_async_request.assert_awaited_once_with(request)
-
-
-@pytest.mark.asyncio
-async def test_resilient_transport_logs_and_retries_on_transient_failure():
-    inner_transport = AsyncMock()
-    response = MagicMock()
-    inner_transport.handle_async_request = AsyncMock(
-        side_effect=[httpx.TransportError("boom"), response]
-    )
-    logger = MagicMock()
-
-    settings = HttpClientSettings()
-    settings.retry.retry_count = 2
-    settings.retry.retry_delay = 0.01
-    settings.retry.retry_on = (httpx.TransportError,)
-
-    transport = ResilientTransport(
-        http_client_settings=settings, logger=logger, transport=inner_transport
+    inner_client.request.assert_awaited_once_with(
+        method=HttpMethod.GET.value,
+        url="/health",
+        params={"q": "1"},
+        json=None,
+        headers={"X-A": "b"},
     )
 
-    result = await transport.handle_async_request(MagicMock())
-
-    assert result is response
-    assert inner_transport.handle_async_request.await_count == 2
-    logger.warning.assert_called_once()
-
 
 @pytest.mark.asyncio
-async def test_resilient_transport_breaker_timeout_duration_is_in_seconds_not_days():
-    settings = HttpClientSettings()
-    settings.circuit_breaker.recovery_timeout = 30
-    transport = ResilientTransport(http_client_settings=settings)
+async def test_post_delegates_with_expected_method_and_body():
+    inner_client = AsyncMock()
+    response = MagicMock()
+    response.headers = {"content-type": "application/json"}
+    response.content = b"{}"
+    inner_client.request = AsyncMock(return_value=response)
 
-    try:
-        assert transport._breaker.timeout_duration.total_seconds() == 30
-    finally:
-        await transport.aclose()
+    client = HttpxClient(inner_client)
 
+    await client.post("/users", body={"name": "john"})
 
-@pytest.mark.asyncio
-async def test_resilient_transport_defaults_to_a_working_http_transport():
-    settings = HttpClientSettings()
-    transport = ResilientTransport(http_client_settings=settings)
-
-    try:
-        assert isinstance(transport._transport, httpx.AsyncHTTPTransport)
-    finally:
-        await transport.aclose()
-
-
-@pytest.mark.asyncio
-async def test_resilient_transport_aclose_closes_underlying_transport():
-    inner_transport = AsyncMock()
-    settings = HttpClientSettings()
-    transport = ResilientTransport(http_client_settings=settings, transport=inner_transport)
-
-    await transport.aclose()
-
-    inner_transport.aclose.assert_awaited_once()
+    inner_client.request.assert_awaited_once_with(
+        method=HttpMethod.POST.value,
+        url="/users",
+        params=None,
+        json={"name": "john"},
+        headers=None,
+    )
