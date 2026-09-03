@@ -22,7 +22,7 @@ install_dev:
 	uv sync --group dev
 
 test:
-	uv run pytest
+	uv run pytest --disable-warnings
 
 lint:
 	uv run ruff check .
