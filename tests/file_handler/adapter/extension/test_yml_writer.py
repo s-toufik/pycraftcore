@@ -1,6 +1,6 @@
 import yaml
 
-from pycraftcore.file_handler.adapter.extension.yml_writer import YmlFileWriter
+from pycraftcore.file_handler.adapter.extension.yml.yml_writer import YmlFileWriter
 
 
 def test_write_serializes_dict_to_yml_file(tmp_path):
