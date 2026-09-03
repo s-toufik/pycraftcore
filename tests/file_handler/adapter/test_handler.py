@@ -22,7 +22,7 @@ def test_handler_round_trips_yml_data(tmp_path):
 
 
 def test_handler_raises_for_unsupported_extension(tmp_path):
-    file_path = tmp_path / "config.json"
+    file_path = tmp_path / "config.foo"
     file_path.write_text("{}")
 
     with pytest.raises(NotImplementedError):

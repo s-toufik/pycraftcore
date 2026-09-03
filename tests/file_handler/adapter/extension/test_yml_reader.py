@@ -1,4 +1,4 @@
-from pycraftcore.file_handler.adapter.extension.yml_reader import YmlFileReader
+from pycraftcore.file_handler.adapter.extension.yml.yml_reader import YmlFileReader
 
 
 def test_read_parses_yml_file_into_dict(tmp_path):
