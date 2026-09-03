@@ -4,6 +4,7 @@ __pycache__/
 *.py[oc]
 build/
 dist/
+.coverage
 wheels/
 *.egg-info
 
