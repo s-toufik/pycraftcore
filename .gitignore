@@ -4,6 +4,7 @@ __pycache__/
 *.py[oc]
 build/
 dist/
+.coverage
 wheels/
 *.egg-info
 
@@ -20,5 +21,6 @@ wheels/
 # Dev
 .hypothesis
 
-# OS
+# Mac
 .DS_Store
+**/.DS_Store
