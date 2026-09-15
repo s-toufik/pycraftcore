@@ -48,7 +48,9 @@ async def test_connection_opens_and_memoizes_client():
 @pytest.mark.asyncio
 async def test_connection_builds_conninfo_from_settings():
     factory = PostgresRepositoryFactory(
-        make_settings(host="db.internal", port=6543, default_name="app", user="alice", password="pw")
+        make_settings(
+            host="db.internal", port=6543, default_name="app", user="alice", password="pw"
+        )
     )
 
     with patch(
