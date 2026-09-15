@@ -2,7 +2,7 @@ from pycraftcore.application_configuration.enum.connector_type import ConnectorT
 from pycraftcore.application_configuration.model.connector import DatabaseConnector
 from pycraftcore.authentication.model.auth_type import AuthType
 from pycraftcore.authentication.model.no_auth import NoAuth
-from pycraftcore.repository.adapter.sqlite import SqliteSettingsMapper
+from pycraftcore.repository.adapter.sql.sqlite import SqliteSettingsMapper
 
 
 def make_connector(pool: dict) -> DatabaseConnector:

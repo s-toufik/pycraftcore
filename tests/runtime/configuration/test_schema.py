@@ -1,4 +1,4 @@
-from pycraftcore.runtime.configuration.schema import SafeCodeSettings, CodeStdout
+from pycraftcore.runtime.schema.code_stdout import SafeCodeSettings, CodeStdout
 
 
 def test_safe_code_settings_defaults():

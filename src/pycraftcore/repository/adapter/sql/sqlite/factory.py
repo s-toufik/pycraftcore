@@ -4,8 +4,8 @@ from sqlite3 import Row
 from aiosqlite import Connection, connect
 
 from pycraftcore.repository.port.repository import AsyncRepository
-from pycraftcore.repository.adapter.sqlite.adapter import SqliteRepository
-from pycraftcore.repository.adapter.sqlite.schema import SqliteConnector
+from pycraftcore.repository.adapter.sql.sqlite import SqliteRepository
+from pycraftcore.repository.adapter.sql.sqlite.schema import SqliteConnector
 
 _PRAGMAS: tuple[str, ...] = (
     "PRAGMA journal_mode=WAL",
@@ -14,7 +14,7 @@ _PRAGMAS: tuple[str, ...] = (
 )
 
 
-class SQLiteRepositoryFactory:
+class SqliteRepositoryFactory:
     def __init__(self, settings: SqliteConnector):
         self._settings = settings
         self._client: Connection | None = None

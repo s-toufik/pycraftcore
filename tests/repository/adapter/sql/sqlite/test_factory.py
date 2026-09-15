@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from pycraftcore.repository.adapter.sqlite.factory import SQLiteRepositoryFactory
-from pycraftcore.repository.adapter.sqlite import SqliteConnector
+from pycraftcore.repository.adapter.sql.sqlite import SqliteRepositoryFactory
+from pycraftcore.repository.adapter.sql.sqlite import SqliteConnector
 
 
 def make_fake_client() -> MagicMock:
@@ -17,11 +17,11 @@ def make_fake_client() -> MagicMock:
 async def test_connection_creates_directory_and_memoizes_client(tmp_path):
     db_dir = tmp_path / "data"
     settings = SqliteConnector(path=str(db_dir), default_name="main", max_pool_size=1)
-    factory = SQLiteRepositoryFactory(settings)
+    factory = SqliteRepositoryFactory(settings)
     fake_client = make_fake_client()
 
     with patch(
-        "pycraftcore.repository.adapter.sqlite.factory.connect",
+        "pycraftcore.repository.adapter.sql.sqlite.factory.connect",
         AsyncMock(return_value=fake_client),
     ) as mock_connect:
         first = await factory.connection()
@@ -37,11 +37,11 @@ async def test_connection_creates_directory_and_memoizes_client(tmp_path):
 @pytest.mark.asyncio
 async def test_connection_applies_wal_and_busy_timeout_pragmas(tmp_path):
     settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=1)
-    factory = SQLiteRepositoryFactory(settings)
+    factory = SqliteRepositoryFactory(settings)
     fake_client = make_fake_client()
 
     with patch(
-        "pycraftcore.repository.adapter.sqlite.factory.connect",
+        "pycraftcore.repository.adapter.sql.sqlite.factory.connect",
         AsyncMock(return_value=fake_client),
     ):
         await factory.connection()
@@ -55,10 +55,10 @@ async def test_connection_applies_wal_and_busy_timeout_pragmas(tmp_path):
 @pytest.mark.asyncio
 async def test_connection_does_not_create_directory_when_it_already_exists(tmp_path):
     settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=1)
-    factory = SQLiteRepositoryFactory(settings)
+    factory = SqliteRepositoryFactory(settings)
 
     with patch(
-        "pycraftcore.repository.adapter.sqlite.factory.connect",
+        "pycraftcore.repository.adapter.sql.sqlite.factory.connect",
         AsyncMock(return_value=make_fake_client()),
     ):
         await factory.connection()
@@ -69,10 +69,10 @@ async def test_connection_does_not_create_directory_when_it_already_exists(tmp_p
 @pytest.mark.asyncio
 async def test_connect_returns_repository_backed_by_a_connection_pool(tmp_path):
     settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=3)
-    factory = SQLiteRepositoryFactory(settings)
+    factory = SqliteRepositoryFactory(settings)
 
     with patch(
-        "pycraftcore.repository.adapter.sqlite.factory.connect",
+        "pycraftcore.repository.adapter.sql.sqlite.factory.connect",
         AsyncMock(side_effect=lambda *_args, **_kwargs: make_fake_client()),
     ) as mock_connect:
         repository = await factory.connect()
@@ -86,10 +86,10 @@ async def test_connect_returns_repository_backed_by_a_connection_pool(tmp_path):
 @pytest.mark.asyncio
 async def test_connect_and_connection_use_independent_underlying_resources(tmp_path):
     settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=2)
-    factory = SQLiteRepositoryFactory(settings)
+    factory = SqliteRepositoryFactory(settings)
 
     with patch(
-        "pycraftcore.repository.adapter.sqlite.factory.connect",
+        "pycraftcore.repository.adapter.sql.sqlite.factory.connect",
         AsyncMock(side_effect=lambda *_args, **_kwargs: make_fake_client()),
     ) as mock_connect:
         connection = await factory.connection()
@@ -103,11 +103,11 @@ async def test_connect_and_connection_use_independent_underlying_resources(tmp_p
 @pytest.mark.asyncio
 async def test_disconnect_closes_client_and_pool_and_is_idempotent(tmp_path):
     settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=2)
-    factory = SQLiteRepositoryFactory(settings)
+    factory = SqliteRepositoryFactory(settings)
     clients = [make_fake_client(), make_fake_client(), make_fake_client()]
 
     with patch(
-        "pycraftcore.repository.adapter.sqlite.factory.connect",
+        "pycraftcore.repository.adapter.sql.sqlite.factory.connect",
         AsyncMock(side_effect=clients),
     ):
         await factory.connection()
@@ -125,6 +125,6 @@ async def test_disconnect_closes_client_and_pool_and_is_idempotent(tmp_path):
 @pytest.mark.asyncio
 async def test_disconnect_without_prior_connection_is_a_no_op(tmp_path):
     settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=1)
-    factory = SQLiteRepositoryFactory(settings)
+    factory = SqliteRepositoryFactory(settings)
 
     await factory.disconnect()

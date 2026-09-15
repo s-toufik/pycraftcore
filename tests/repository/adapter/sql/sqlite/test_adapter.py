@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from pycraftcore.repository.adapter.sqlite.adapter import SqliteRepository
+from pycraftcore.repository.adapter.sql.sqlite import SqliteRepository
 
 
 @pytest.fixture

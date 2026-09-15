@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from pycraftcore.file_handler.adapter.strategy import FileHandlerStrategy
+from pycraftcore.file_handler.schema.file_manifest import FileManifest
 
 
 class FileHandlerFactory:
@@ -35,3 +36,15 @@ class FileHandlerFactory:
         self._validate_file_for_write()
         writer = self._strategy.get_writer(self._file_extension())
         writer.write(str(self._file_path), data)
+
+    def manifest(self) -> FileManifest:
+        return FileManifest(
+            file_path=str(self._file_path),
+            byte_size=self._file_path.stat().st_size,
+            line_count=self._line_count(str(self._file_path)),
+        )
+
+    @staticmethod
+    def _line_count(file_path: str) -> int:
+        with open(file_path, mode="rb") as file:
+            return sum(chunk.count(b"\n") for chunk in iter(lambda: file.read(4096), b""))

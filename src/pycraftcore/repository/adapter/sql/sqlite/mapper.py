@@ -1,5 +1,5 @@
 from pycraftcore.application_configuration.model.connector import DatabaseConnector
-from pycraftcore.repository.adapter.sqlite.schema import SqliteConnector
+from pycraftcore.repository.adapter.sql.sqlite.schema import SqliteConnector
 
 
 class SqliteSettingsMapper:

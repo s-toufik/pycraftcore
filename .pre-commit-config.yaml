@@ -1,6 +1,14 @@
 repos:
   - repo: local
     hooks:
+      - id: uv-lock-check
+        name: Check if lock file is sync
+        entry: uv lock --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [ pre-commit, pre-push ]
+
       - id: ty
         name: Run static type checker
         entry: uv run ty check
@@ -8,6 +16,7 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [ pre-commit, pre-push ]
+
       - id: ruff
         name: Run linter
         entry: uv run ruff check .
@@ -15,6 +24,7 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [ pre-commit, pre-push ]
+
       - id: pytest
         name: Run unit tests
         entry: uv run pytest --maxfail=1 --disable-warnings

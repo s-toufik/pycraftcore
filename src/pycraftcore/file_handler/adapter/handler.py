@@ -4,6 +4,8 @@ from pycraftcore.file_handler.adapter.extension.json.json_reader import JsonFile
 from pycraftcore.file_handler.adapter.extension.json.json_writer import JsonFileWriter
 from pycraftcore.file_handler.adapter.extension.markdown.markdown_reader import MarkdownFileReader
 from pycraftcore.file_handler.adapter.extension.markdown.markdown_writer import MarkdownFileWriter
+from pycraftcore.file_handler.adapter.extension.txt.txt_reader import TxtFileReader
+from pycraftcore.file_handler.adapter.extension.txt.txt_writer import TxtFileWriter
 from pycraftcore.file_handler.adapter.extension.yml.yml_reader import YmlFileReader
 from pycraftcore.file_handler.adapter.extension.yml.yml_writer import YmlFileWriter
 from pycraftcore.file_handler.adapter.provider import FileHandlerProvider
@@ -20,6 +22,7 @@ strategy = FileHandlerStrategy(
         "json": {"reader": JsonFileReader(), "writer": JsonFileWriter()},
         "csv": {"reader": CsvFileReader(), "writer": CsvFileWriter()},
         "md": {"reader": MarkdownFileReader(), "writer": MarkdownFileWriter()},
+        "txt": {"reader": TxtFileReader(), "writer": TxtFileWriter()},
     }
 )
 

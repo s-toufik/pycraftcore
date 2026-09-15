@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock
 
 from pycraftcore.repository.port.repository import AsyncRepository, AsyncRepositoryFactory
-from pycraftcore.repository.adapter.sqlite.adapter import SqliteRepository
-from pycraftcore.repository.adapter.sqlite.factory import SQLiteRepositoryFactory
-from pycraftcore.repository.adapter.sqlite import SqliteConnector
+from pycraftcore.repository.adapter.sql.sqlite import SqliteRepository
+from pycraftcore.repository.adapter.sql.sqlite import SqliteRepositoryFactory
+from pycraftcore.repository.adapter.sql.sqlite import SqliteConnector
 
 
 def test_sqlite_repository_satisfies_async_repository():
@@ -14,6 +14,6 @@ def test_sqlite_repository_satisfies_async_repository():
 
 def test_sqlite_repository_factory_satisfies_async_repository_factory(tmp_path):
     settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=1)
-    factory: AsyncRepositoryFactory = SQLiteRepositoryFactory(settings)
+    factory: AsyncRepositoryFactory = SqliteRepositoryFactory(settings)
 
     assert isinstance(factory, AsyncRepositoryFactory)
