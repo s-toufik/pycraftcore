@@ -2,7 +2,7 @@ from typing import cast
 
 from pycraftcore.runtime.adapter.python.adapter import PythonSafeCode
 from pycraftcore.runtime.adapter.python.factory import PythonSafeCodeFactory
-from pycraftcore.runtime.schema.code_stdout import SafeCodeSettings
+from pycraftcore.runtime.schema.safe_code_settings import SafeCodeSettings
 
 
 def test_default_settings_are_used_when_none_provided():

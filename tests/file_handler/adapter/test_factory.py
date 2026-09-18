@@ -39,7 +39,7 @@ def test_read_delegates_to_strategy_reader(tmp_path):
     result = factory.read()
 
     strategy.get_reader.assert_called_once_with("yml")
-    reader.read.assert_called_once_with(str(file_path))
+    reader.read.assert_called_once_with(str(file_path), None, None, None)
     assert result == {"ok": True}
 
 

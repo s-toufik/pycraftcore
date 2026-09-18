@@ -15,7 +15,10 @@ class MongoRepositoryFactory:
 
     async def connection(self) -> MongoClient:
         if self._client is None:
-            self._client = MongoClient(self._connection_uri())
+            self._client = MongoClient(
+                self._connection_uri(),
+                serverSelectionTimeoutMS=self._settings.server_sellection_timeout,
+            )
         return self._client
 
     async def connect(self) -> AsyncRepository:

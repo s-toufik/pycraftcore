@@ -21,6 +21,6 @@ class PostgresRepository:
 
                 rows: list[Any] = await cursor.fetchall()
 
-                column_names: list[str] = [column.name for column in cursor.description]  # type: ignore
+                column_names: list[str] = [column.name for column in cursor.description]
 
                 return [dict(zip(column_names, row)) for row in rows]

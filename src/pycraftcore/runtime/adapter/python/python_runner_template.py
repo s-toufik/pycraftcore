@@ -149,7 +149,7 @@ class _HostBridge:
         if response.get("error"):
             raise RuntimeError(response["error"])
 
-        return response.get("output", "")
+        return json.loads(response.get("output", "null"))
 
     def _readline(self, connection):
         while b"\\n" not in self._buffer:

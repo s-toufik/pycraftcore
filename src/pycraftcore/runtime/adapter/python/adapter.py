@@ -33,7 +33,9 @@ class PythonSafeCode:
         self._host_bridge_config = host_bridge_config
 
     def _parse_code(self) -> str:
-        function_names: tuple[str, ...] = self._host_bridge_config.function_names if self._host_bridge_config else ()
+        function_names: tuple[str, ...] = (
+            self._host_bridge_config.function_names if self._host_bridge_config else ()
+        )
 
         return self._code_template.substitute(
             allowlist=repr(sorted(PYTHON_ALLOWLIST)),

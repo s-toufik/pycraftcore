@@ -154,11 +154,13 @@ async def test_execute_on_nonzero_returncode_preserves_partial_stdout():
 
 
 def test_build_environment_does_not_leak_arbitrary_host_variables():
+    safe_code = PythonSafeCode(code="result = 1")
+
     with patch.dict(
         os.environ,
         {"PATH": "/usr/bin", "LANG": "en_US.UTF-8", "SECRET_TOKEN": "leak-me"},
     ):
-        environment = PythonSafeCode._build_environment()
+        environment = safe_code._build_environment()
 
     assert environment == {
         "PATH": "/usr/bin",

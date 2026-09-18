@@ -46,7 +46,9 @@ async def test_connection_uri_omits_credentials_when_not_configured():
     ) as mock_client_cls:
         await factory.connection()
 
-    mock_client_cls.assert_called_once_with("mongodb://db.internal:27018")
+    mock_client_cls.assert_called_once_with(
+        "mongodb://db.internal:27018", serverSelectionTimeoutMS=5000
+    )
 
 
 @pytest.mark.asyncio
@@ -61,7 +63,8 @@ async def test_connection_uri_includes_credentials_when_configured():
         await factory.connection()
 
     mock_client_cls.assert_called_once_with(
-        "mongodb://alice:secret@db.internal:27018/?authSource=admin"
+        "mongodb://alice:secret@db.internal:27018/?authSource=admin",
+        serverSelectionTimeoutMS=5000,
     )
 
 

@@ -37,7 +37,7 @@ class FileConnector(BaseConnector):
 
 @dataclass(slots=True)
 class TelemetryConnector(BaseConnector):
-    host: str
+    host: str | None
     port: int
 
 
