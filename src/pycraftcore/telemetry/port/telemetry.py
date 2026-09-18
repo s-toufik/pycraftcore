@@ -1,18 +1,16 @@
-from collections.abc import Awaitable, Callable
-from typing import Any, ParamSpec, Protocol, TypeVar, runtime_checkable
+import logging
+from typing import Protocol, runtime_checkable
 
-P = ParamSpec("P")
-R = TypeVar("R")
+from opentelemetry.metrics import Meter
 
+from pycraftcore.telemetry.port.tracer import TelemetryTracer
 
-@runtime_checkable
-class TelemetryTracer(Protocol):
-    def trace(
-        self, span_name: str, static_attributes: dict[str, Any]
-    ) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]: ...
+__all__ = ["TelemetryProvider", "TelemetryTracer"]
 
 
 @runtime_checkable
 class TelemetryProvider(Protocol):
     def tracer(self, service_name: str) -> TelemetryTracer: ...
+    def log_handler(self) -> logging.Handler: ...
+    def meter(self, service_name: str) -> Meter: ...
     def shutdown(self) -> None: ...

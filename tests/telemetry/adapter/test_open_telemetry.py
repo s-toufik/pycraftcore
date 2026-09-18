@@ -1,229 +1,81 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from pycraftcore.application_configuration.enum.run_type_environment import (
     RunTypeEnvironment,
 )
-from pycraftcore.http.context.request_context import request_id_context
-from pycraftcore.telemetry.adapter.open_telemetry import (
-    OpenTelemetryProvider,
-    OpenTelemetryTracer,
-    RequestIdSpanProcessor,
-)
+from pycraftcore.telemetry.adapter.open_telemetry import OpenTelemetryProvider
+from pycraftcore.telemetry.adapter.open_telemetry_tracer import OpenTelemetryTracer
+
+MODULE = "pycraftcore.telemetry.adapter.open_telemetry"
 
 
-def test_provider_uses_console_exporter_when_no_otlp_endpoint():
+def build_provider(**kwargs):
     with (
-        patch("pycraftcore.telemetry.adapter.open_telemetry.TracerProvider") as mock_provider_cls,
-        patch("pycraftcore.telemetry.adapter.open_telemetry.BatchSpanProcessor") as mock_bsp,
-        patch("pycraftcore.telemetry.adapter.open_telemetry.ConsoleSpanExporter") as mock_console,
-        patch("pycraftcore.telemetry.adapter.open_telemetry.OTLPSpanExporter") as mock_otlp,
-        patch("pycraftcore.telemetry.adapter.open_telemetry.trace.set_tracer_provider"),
+        patch(f"{MODULE}.OpenTelemetryTraceProvider") as mock_trace_provider_cls,
+        patch(f"{MODULE}.OpenTelemetryLoggerProvider") as mock_logger_provider_cls,
+        patch(f"{MODULE}.OpenTelemetryMeterProvider") as mock_meter_provider_cls,
+        patch(f"{MODULE}.Resource") as mock_resource,
     ):
-        mock_provider = MagicMock()
-        mock_provider_cls.return_value = mock_provider
-
-        OpenTelemetryProvider(service_name="svc")
-
-        mock_console.assert_called_once()
-        mock_otlp.assert_not_called()
-        mock_provider.add_span_processor.assert_called_with(mock_bsp.return_value)
-        assert mock_provider.add_span_processor.call_count == 2
-        first_processor = mock_provider.add_span_processor.call_args_list[0].args[0]
-        assert isinstance(first_processor, RequestIdSpanProcessor)
-
-
-def test_provider_uses_otlp_exporter_when_endpoint_given():
-    with (
-        patch("pycraftcore.telemetry.adapter.open_telemetry.TracerProvider") as mock_provider_cls,
-        patch("pycraftcore.telemetry.adapter.open_telemetry.BatchSpanProcessor"),
-        patch("pycraftcore.telemetry.adapter.open_telemetry.ConsoleSpanExporter") as mock_console,
-        patch("pycraftcore.telemetry.adapter.open_telemetry.OTLPSpanExporter") as mock_otlp,
-        patch("pycraftcore.telemetry.adapter.open_telemetry.trace.set_tracer_provider"),
-    ):
-        mock_provider_cls.return_value = MagicMock()
-
-        OpenTelemetryProvider(
-            service_name="svc",
-            environment=RunTypeEnvironment.deploy,
-            otlp_endpoint="http://collector:4317",
+        provider = OpenTelemetryProvider(service_name="svc", **kwargs)
+        return (
+            provider,
+            mock_trace_provider_cls,
+            mock_logger_provider_cls,
+            mock_meter_provider_cls,
+            mock_resource,
         )
 
-        mock_otlp.assert_called_once_with(endpoint="http://collector:4317", insecure=True)
-        mock_console.assert_not_called()
+
+def test_init_builds_one_shared_resource_and_wires_all_three_sub_providers():
+    provider, trace_cls, logger_cls, meter_cls, resource_cls = build_provider(
+        environment=RunTypeEnvironment.deploy,
+        otlp_endpoint="http://collector:4317",
+    )
+
+    resource = resource_cls.create.return_value
+    trace_cls.assert_called_once_with(resource, "http://collector:4317")
+    logger_cls.assert_called_once_with(resource, "http://collector:4317")
+    meter_cls.assert_called_once_with(resource, "http://collector:4317")
+    assert provider._trace_provider is trace_cls.return_value
+    assert provider._logger_provider is logger_cls.return_value
+    assert provider._meter_provider is meter_cls.return_value
 
 
-def test_provider_sets_the_global_tracer_provider():
-    with (
-        patch("pycraftcore.telemetry.adapter.open_telemetry.TracerProvider") as mock_provider_cls,
-        patch("pycraftcore.telemetry.adapter.open_telemetry.BatchSpanProcessor"),
-        patch("pycraftcore.telemetry.adapter.open_telemetry.ConsoleSpanExporter"),
-        patch("pycraftcore.telemetry.adapter.open_telemetry.trace.set_tracer_provider") as mock_set,
-    ):
-        mock_provider = MagicMock()
-        mock_provider_cls.return_value = mock_provider
+def test_tracer_wraps_the_trace_provider_tracer_in_an_open_telemetry_tracer():
+    provider, trace_cls, *_ = build_provider()
+    fake_raw_tracer = MagicMock()
+    trace_cls.return_value.tracer.return_value = fake_raw_tracer
 
-        OpenTelemetryProvider(service_name="svc")
+    tracer = provider.tracer("svc")
 
-        mock_set.assert_called_once_with(mock_provider)
+    trace_cls.return_value.tracer.assert_called_once_with("svc")
+    assert isinstance(tracer, OpenTelemetryTracer)
+    assert tracer.tracer is fake_raw_tracer
 
 
-def test_tracer_returns_open_telemetry_tracer_wrapping_otel_tracer():
-    with (
-        patch("pycraftcore.telemetry.adapter.open_telemetry.TracerProvider"),
-        patch("pycraftcore.telemetry.adapter.open_telemetry.BatchSpanProcessor"),
-        patch("pycraftcore.telemetry.adapter.open_telemetry.ConsoleSpanExporter"),
-        patch("pycraftcore.telemetry.adapter.open_telemetry.trace.set_tracer_provider"),
-        patch("pycraftcore.telemetry.adapter.open_telemetry.trace.get_tracer") as mock_get_tracer,
-    ):
-        fake_otel_tracer = MagicMock()
-        mock_get_tracer.return_value = fake_otel_tracer
+def test_log_handler_delegates_to_the_logger_provider():
+    provider, _, logger_cls, *_ = build_provider()
 
-        provider = OpenTelemetryProvider(service_name="svc")
-        tracer = provider.tracer("svc")
+    handler = provider.log_handler()
 
-        assert isinstance(tracer, OpenTelemetryTracer)
-        assert tracer.tracer is fake_otel_tracer
+    logger_cls.return_value.handler.assert_called_once_with()
+    assert handler is logger_cls.return_value.handler.return_value
 
 
-def test_shutdown_delegates_to_provider():
-    with (
-        patch("pycraftcore.telemetry.adapter.open_telemetry.TracerProvider") as mock_provider_cls,
-        patch("pycraftcore.telemetry.adapter.open_telemetry.BatchSpanProcessor"),
-        patch("pycraftcore.telemetry.adapter.open_telemetry.ConsoleSpanExporter"),
-        patch("pycraftcore.telemetry.adapter.open_telemetry.trace.set_tracer_provider"),
-    ):
-        mock_provider = MagicMock()
-        mock_provider_cls.return_value = mock_provider
+def test_meter_delegates_to_the_meter_provider():
+    provider, _, _, meter_cls, _ = build_provider()
 
-        provider = OpenTelemetryProvider(service_name="svc")
-        provider.shutdown()
+    meter = provider.meter("svc")
 
-        mock_provider.shutdown.assert_called_once()
+    meter_cls.return_value.meter.assert_called_once_with("svc")
+    assert meter is meter_cls.return_value.meter.return_value
 
 
-def make_fake_otel_tracer():
-    fake_span = MagicMock()
-    fake_tracer = MagicMock()
-    fake_tracer.start_as_current_span.return_value.__enter__.return_value = fake_span
-    fake_tracer.start_as_current_span.return_value.__exit__.return_value = False
-    return fake_tracer, fake_span
+def test_shutdown_shuts_down_all_three_sub_providers():
+    provider, trace_cls, logger_cls, meter_cls, _ = build_provider()
 
+    provider.shutdown()
 
-@pytest.mark.asyncio
-async def test_trace_sets_ok_status_on_success():
-    fake_tracer, fake_span = make_fake_otel_tracer()
-    tracer = OpenTelemetryTracer(fake_tracer, "svc")
-
-    @tracer.trace(span_name="op", static_attributes={"k": "v"})
-    async def handler():
-        return "result"
-
-    result = await handler()
-
-    assert result == "result"
-    fake_span.set_status.assert_called_once()
-    status = fake_span.set_status.call_args[0][0]
-    assert status.status_code.name == "OK"
-
-
-@pytest.mark.asyncio
-async def test_trace_sets_error_status_and_reraises_on_failure():
-    fake_tracer, fake_span = make_fake_otel_tracer()
-    tracer = OpenTelemetryTracer(fake_tracer, "svc")
-
-    @tracer.trace(span_name="op", static_attributes={})
-    async def handler():
-        raise ValueError("boom")
-
-    with pytest.raises(ValueError, match="boom"):
-        await handler()
-
-    fake_span.set_status.assert_called_once()
-    status = fake_span.set_status.call_args[0][0]
-    assert status.status_code.name == "ERROR"
-
-
-@pytest.mark.asyncio
-async def test_trace_enriches_span_with_static_attributes():
-    fake_tracer, fake_span = make_fake_otel_tracer()
-    tracer = OpenTelemetryTracer(fake_tracer, "svc")
-
-    @tracer.trace(span_name="op", static_attributes={"HttpMethod": "GET", "count": 3})
-    async def handler():
-        return None
-
-    await handler()
-
-    fake_span.set_attribute.assert_any_call("HttpMethod", "GET")
-    fake_span.set_attribute.assert_any_call("count", "3")
-
-
-@pytest.mark.asyncio
-async def test_trace_enriches_span_with_request_id_when_set():
-    fake_tracer, fake_span = make_fake_otel_tracer()
-    tracer = OpenTelemetryTracer(fake_tracer, "svc")
-
-    token = request_id_context.set("req-123")
-    try:
-
-        @tracer.trace(span_name="op", static_attributes={})
-        async def handler():
-            return None
-
-        await handler()
-    finally:
-        request_id_context.reset(token)
-
-    fake_span.set_attribute.assert_any_call("request_id", "req-123")
-    fake_span.set_attribute.assert_any_call("tracer_name", "svc")
-
-
-@pytest.mark.asyncio
-async def test_trace_does_not_enrich_request_id_when_unset():
-    fake_tracer, fake_span = make_fake_otel_tracer()
-    tracer = OpenTelemetryTracer(fake_tracer, "svc")
-
-    assert request_id_context.get() is None
-
-    @tracer.trace(span_name="op", static_attributes={})
-    async def handler():
-        return None
-
-    await handler()
-
-    for call in fake_span.set_attribute.call_args_list:
-        assert call.args[0] != "request_id"
-
-
-def test_request_id_span_processor_sets_attribute_when_request_id_is_set():
-    span = MagicMock()
-    token = request_id_context.set("req-456")
-    try:
-        RequestIdSpanProcessor().on_start(span)
-    finally:
-        request_id_context.reset(token)
-
-    span.set_attribute.assert_called_once_with("request_id", "req-456")
-
-
-def test_request_id_span_processor_does_nothing_when_request_id_is_unset():
-    span = MagicMock()
-
-    assert request_id_context.get() is None
-    RequestIdSpanProcessor().on_start(span)
-
-    span.set_attribute.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_trace_preserves_wrapped_function_metadata():
-    fake_tracer, _ = make_fake_otel_tracer()
-    tracer = OpenTelemetryTracer(fake_tracer, "svc")
-
-    @tracer.trace(span_name="op", static_attributes={})
-    async def my_handler():
-        return None
-
-    assert my_handler.__name__ == "my_handler"
+    trace_cls.return_value.shutdown.assert_called_once()
+    logger_cls.return_value.shutdown.assert_called_once()
+    meter_cls.return_value.shutdown.assert_called_once()
