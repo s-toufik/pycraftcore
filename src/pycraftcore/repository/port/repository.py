@@ -7,7 +7,7 @@ from typing import Any, Protocol, runtime_checkable
 class AsyncRepository(Protocol):
     async def execute(
         self,
-        sql: str,
+        query: str,
         parameters: tuple[Any, ...] = (),
     ) -> list[dict[str, Any]]: ...
 

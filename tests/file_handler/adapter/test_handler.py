@@ -21,6 +21,15 @@ def test_handler_round_trips_yml_data(tmp_path):
     assert result == {"name": "test", "value": 42}
 
 
+def test_handler_round_trips_txt_data(tmp_path):
+    file_path = tmp_path / "notes.txt"
+
+    Handler(str(file_path)).write("hello world")
+    result = Handler(str(file_path)).read()
+
+    assert result == "hello world"
+
+
 def test_handler_raises_for_unsupported_extension(tmp_path):
     file_path = tmp_path / "config.foo"
     file_path.write_text("{}")

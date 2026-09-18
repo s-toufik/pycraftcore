@@ -22,11 +22,11 @@ class SqliteRepository:
 
     async def execute(
         self,
-        sql: str,
+        query: str,
         parameters: tuple[Any, ...] = (),
     ) -> list[dict[str, Any]]:
         async with self._acquire() as connection:
-            cursor = await connection.execute(sql, parameters)
+            cursor = await connection.execute(query, parameters)
             try:
                 if cursor.description is None:
                     await connection.commit()

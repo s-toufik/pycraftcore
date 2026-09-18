@@ -4,7 +4,7 @@ import pkgutil
 
 import pycraftcore
 
-TARGET_PACKAGE_NAMES = {"port", "configuration", "adapter"}
+TARGET_PACKAGE_NAMES = {"port", "schema", "adapter"}
 
 
 def _iter_target_package_names() -> list[str]:

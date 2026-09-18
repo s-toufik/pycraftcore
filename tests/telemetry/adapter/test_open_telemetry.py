@@ -9,6 +9,7 @@ from pycraftcore.http.context.request_context import request_id_context
 from pycraftcore.telemetry.adapter.open_telemetry import (
     OpenTelemetryProvider,
     OpenTelemetryTracer,
+    RequestIdSpanProcessor,
 )
 
 
@@ -27,7 +28,10 @@ def test_provider_uses_console_exporter_when_no_otlp_endpoint():
 
         mock_console.assert_called_once()
         mock_otlp.assert_not_called()
-        mock_provider.add_span_processor.assert_called_once_with(mock_bsp.return_value)
+        mock_provider.add_span_processor.assert_called_with(mock_bsp.return_value)
+        assert mock_provider.add_span_processor.call_count == 2
+        first_processor = mock_provider.add_span_processor.call_args_list[0].args[0]
+        assert isinstance(first_processor, RequestIdSpanProcessor)
 
 
 def test_provider_uses_otlp_exporter_when_endpoint_given():
@@ -191,6 +195,26 @@ async def test_trace_does_not_enrich_request_id_when_unset():
 
     for call in fake_span.set_attribute.call_args_list:
         assert call.args[0] != "request_id"
+
+
+def test_request_id_span_processor_sets_attribute_when_request_id_is_set():
+    span = MagicMock()
+    token = request_id_context.set("req-456")
+    try:
+        RequestIdSpanProcessor().on_start(span)
+    finally:
+        request_id_context.reset(token)
+
+    span.set_attribute.assert_called_once_with("request_id", "req-456")
+
+
+def test_request_id_span_processor_does_nothing_when_request_id_is_unset():
+    span = MagicMock()
+
+    assert request_id_context.get() is None
+    RequestIdSpanProcessor().on_start(span)
+
+    span.set_attribute.assert_not_called()
 
 
 @pytest.mark.asyncio

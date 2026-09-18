@@ -3,125 +3,16 @@ import os
 import subprocess
 import sys
 import tempfile
-import textwrap
 import traceback
 from string import Template
 
-from pycraftcore.runtime.configuration.schema import CodeStdout
-
-_PYTHON_SAFE_BUILTINS: tuple[str, ...] = (
-    "abs",
-    "all",
-    "any",
-    "bool",
-    "dict",
-    "enumerate",
-    "filter",
-    "float",
-    "int",
-    "len",
-    "list",
-    "map",
-    "max",
-    "min",
-    "pow",
-    "print",
-    "range",
-    "reversed",
-    "round",
-    "set",
-    "sorted",
-    "str",
-    "sum",
-    "tuple",
-    "zip",
+from pycraftcore.runtime.adapter.python.python_runner_template import (
+    PYTHON_ALLOWLIST,
+    _PYTHON_SAFE_BUILTINS,
+    _PYTHON_RUNNER_TEMPLATE,
 )
-
-PYTHON_ALLOWLIST: frozenset[str] = frozenset(
-    {
-        "math",
-        "statistics",
-        "datetime",
-        "re",
-        "json",
-        "collections",
-        "itertools",
-        "functools",
-        "pandas",
-        "numpy",
-        "matplotlib",
-    }
-)
-
-_PYTHON_RUNNER_TEMPLATE: Template = Template(
-    textwrap.dedent("""\
-import builtins
-import json
-import sys
-import traceback
-
-if sys.platform == "linux":
-    import resource
-
-    limit = $max_memory_mb * 1024 * 1024
-
-    resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
-    resource.setrlimit(resource.RLIMIT_CPU, (10, 10))
-
-sys.setrecursionlimit(500)
-
-_ALLOWED_IMPORTS = set($allowlist)
-
-_real_import = builtins.__import__
-
-
-def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
-    root = name.split(".", 1)[0]
-    if root not in _ALLOWED_IMPORTS:
-        raise ImportError(f"Import '{root}' is not allowed.")
-    return _real_import(name, globals, locals, fromlist, level)
-
-
-_SAFE_BUILTINS = {
-    name: getattr(builtins, name)
-    for name in $safe_builtins
-}
-
-_SAFE_BUILTINS["__import__"] = _safe_import
-_SAFE_BUILTINS["__build_class__"] = builtins.__build_class__
-
-_globals = {
-    "__builtins__": _SAFE_BUILTINS,
-    "__name__": "__sandbox__",
-}
-
-try:
-    exec(compile($code, "<sandbox>", "exec"), _globals)
-except Exception:
-    traceback.print_exc(file=sys.stderr)
-    sys.exit(1)
-
-if "result" not in _globals:
-    print(
-        json.dumps({
-            "error": "MissingResult",
-            "message": "Assign the final output to a variable named 'result'."
-        }),
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-print(
-    json.dumps(
-        {
-            "__type__": type(_globals["result"]).__name__,
-            "result": _globals["result"],
-        },
-        default=str,
-    )
-)
-""")
-)
+from pycraftcore.runtime.schema.code_stdout import CodeStdout
+from pycraftcore.runtime.schema.host_bridge import HostBridgeConfig
 
 
 class PythonSafeCode:
@@ -131,22 +22,31 @@ class PythonSafeCode:
         code_template: Template | None = None,
         code_timeout: int | None = 10,
         max_memory_mb: int | None = 256,
+        vault_path: str | None = None,
+        host_bridge_config: HostBridgeConfig | None = None,
     ) -> None:
         self._code = code
         self._code_template = code_template or _PYTHON_RUNNER_TEMPLATE
         self._code_timeout = code_timeout
         self._max_memory_mb = max_memory_mb
+        self._vault_path = os.path.realpath(vault_path) if vault_path else None
+        self._host_bridge_config = host_bridge_config
 
     def _parse_code(self) -> str:
+        function_names: tuple[str, ...] = (
+            self._host_bridge_config.function_names if self._host_bridge_config else ()
+        )
+
         return self._code_template.substitute(
             allowlist=repr(sorted(PYTHON_ALLOWLIST)),
             safe_builtins=repr(_PYTHON_SAFE_BUILTINS),
             code=repr(self._code),
             max_memory_mb=self._max_memory_mb,
+            vault=repr(self._vault_path),
+            bridge_functions=repr(list(function_names)),
         )
 
-    @staticmethod
-    def _build_environment() -> dict[str, str]:
+    def _build_environment(self) -> dict[str, str]:
         environment: dict[str, str] = {
             "PATH": os.environ.get("PATH", ""),
             "LANG": os.environ.get("LANG", "C.UTF-8"),
@@ -156,6 +56,11 @@ class PythonSafeCode:
         }
         if sys.platform == "win32":
             environment["SYSTEMROOT"] = os.environ.get("SYSTEMROOT", "")
+        if self._host_bridge_config is not None:
+            environment["SANDBOX_BRIDGE_HOST"] = self._host_bridge_config.host
+            environment["SANDBOX_BRIDGE_PORT"] = str(self._host_bridge_config.port)
+            environment["SANDBOX_BRIDGE_TOKEN"] = self._host_bridge_config.token
+
         return environment
 
     @staticmethod
@@ -173,6 +78,12 @@ class PythonSafeCode:
         return await asyncio.to_thread(cls._write_temporary_script, runner_src)
 
     async def execute(self) -> CodeStdout:
+
+        if self._vault_path is not None and not os.path.isdir(self._vault_path):
+            return CodeStdout(
+                stdout="",
+                stderr=f"Subprocess error: vault directory does not exist {self._vault_path}",
+            )
 
         runner_src: str = self._parse_code()
         temporary_script_path = await self._create_temporary_script(runner_src)
@@ -195,6 +106,7 @@ class PythonSafeCode:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env,
+            cwd=self._vault_path,
         )
         try:
             stdout_bytes, stderr_bytes = await asyncio.wait_for(

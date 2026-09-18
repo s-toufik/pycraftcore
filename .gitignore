@@ -13,6 +13,7 @@ wheels/
 
 # env
 .env
+uv.toml
 
 # IDEs
 .idea/
@@ -20,7 +21,12 @@ wheels/
 
 # Dev
 .hypothesis
+.deepeval
 
 # Mac
 .DS_Store
 **/.DS_Store
+
+# Sandbox
+sandbox
+sandbox/*

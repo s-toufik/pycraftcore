@@ -39,7 +39,7 @@ def test_read_delegates_to_strategy_reader(tmp_path):
     result = factory.read()
 
     strategy.get_reader.assert_called_once_with("yml")
-    reader.read.assert_called_once_with(str(file_path))
+    reader.read.assert_called_once_with(str(file_path), None, None, None)
     assert result == {"ok": True}
 
 
@@ -67,3 +67,26 @@ def test_write_delegates_to_strategy_writer(tmp_path):
 
     strategy.get_writer.assert_called_once_with("yml")
     writer.write.assert_called_once_with(str(file_path), {"a": 1})
+
+
+def test_manifest_reports_path_byte_size_and_line_count(tmp_path):
+    file_path = tmp_path / "config.yml"
+    file_path.write_text("a: 1\nb: 2\nc: 3\n")
+    factory, _ = make_factory(str(file_path))
+
+    manifest = factory.manifest()
+
+    assert manifest.file_path == str(file_path)
+    assert manifest.byte_size == file_path.stat().st_size
+    assert manifest.line_count == 3
+
+
+def test_manifest_counts_zero_lines_for_empty_file(tmp_path):
+    file_path = tmp_path / "empty.yml"
+    file_path.write_text("")
+    factory, _ = make_factory(str(file_path))
+
+    manifest = factory.manifest()
+
+    assert manifest.byte_size == 0
+    assert manifest.line_count == 0

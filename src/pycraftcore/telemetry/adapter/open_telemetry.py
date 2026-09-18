@@ -3,9 +3,10 @@ from functools import wraps
 from typing import Any, ParamSpec, TypeVar
 
 from opentelemetry import trace
+from opentelemetry.context import Context
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import TracerProvider, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.trace import Status, StatusCode, Tracer
 
@@ -17,6 +18,13 @@ from pycraftcore.http.context.request_context import request_id_context
 P = ParamSpec("P")
 R = TypeVar("R")
 TraceType = Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]
+
+
+class RequestIdSpanProcessor(SpanProcessor):
+    def on_start(self, span: Span, parent_context: Context | None = None) -> None:
+        request_id = request_id_context.get()
+        if request_id:
+            span.set_attribute("request_id", request_id)
 
 
 class OpenTelemetryProvider:
@@ -39,6 +47,7 @@ class OpenTelemetryProvider:
         )
 
         provider = TracerProvider(resource=resource)
+        provider.add_span_processor(RequestIdSpanProcessor())
         self._configure_exporter(self._otlp_endpoint, provider)
         trace.set_tracer_provider(provider)
         self._provider = provider
