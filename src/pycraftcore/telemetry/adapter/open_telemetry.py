@@ -1,30 +1,20 @@
-from collections.abc import Awaitable, Callable
-from functools import wraps
-from typing import Any, ParamSpec, TypeVar
+import logging
 
-from opentelemetry import trace
-from opentelemetry.context import Context
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.metrics import Meter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from opentelemetry.sdk.trace import TracerProvider, Span, SpanProcessor
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-from opentelemetry.trace import Status, StatusCode, Tracer
 
 from pycraftcore.application_configuration.enum.run_type_environment import (
     RunTypeEnvironment,
 )
-from pycraftcore.http.context.request_context import request_id_context
-
-P = ParamSpec("P")
-R = TypeVar("R")
-TraceType = Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]
-
-
-class RequestIdSpanProcessor(SpanProcessor):
-    def on_start(self, span: Span, parent_context: Context | None = None) -> None:
-        request_id = request_id_context.get()
-        if request_id:
-            span.set_attribute("request_id", request_id)
+from pycraftcore.telemetry.adapter.open_telemetry_logger_provider import (
+    OpenTelemetryLoggerProvider,
+)
+from pycraftcore.telemetry.adapter.open_telemetry_meter_provider import (
+    OpenTelemetryMeterProvider,
+)
+from pycraftcore.telemetry.adapter.open_telemetry_provider import OpenTelemetryTraceProvider
+from pycraftcore.telemetry.adapter.open_telemetry_tracer import OpenTelemetryTracer
+from pycraftcore.telemetry.port.tracer import TelemetryTracer
 
 
 class OpenTelemetryProvider:
@@ -35,8 +25,6 @@ class OpenTelemetryProvider:
         otlp_endpoint: str | None = None,
     ) -> None:
 
-        self._service_name = service_name
-        self._environment = environment
         self._otlp_endpoint = otlp_endpoint or ""
 
         resource = Resource.create(
@@ -46,69 +34,20 @@ class OpenTelemetryProvider:
             }
         )
 
-        provider = TracerProvider(resource=resource)
-        provider.add_span_processor(RequestIdSpanProcessor())
-        self._configure_exporter(self._otlp_endpoint, provider)
-        trace.set_tracer_provider(provider)
-        self._provider = provider
+        self._trace_provider = OpenTelemetryTraceProvider(resource, self._otlp_endpoint)
+        self._logger_provider = OpenTelemetryLoggerProvider(resource, self._otlp_endpoint)
+        self._meter_provider = OpenTelemetryMeterProvider(resource, self._otlp_endpoint)
 
-    @staticmethod
-    def _configure_exporter(otlp_endpoint: str, provider: TracerProvider) -> None:
-        if not otlp_endpoint:
-            provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
-        else:
-            provider.add_span_processor(
-                BatchSpanProcessor(
-                    OTLPSpanExporter(
-                        endpoint=otlp_endpoint,
-                        insecure=True,
-                    )
-                )
-            )
+    def tracer(self, service_name: str) -> TelemetryTracer:
+        return OpenTelemetryTracer(self._trace_provider.tracer(service_name), service_name)
 
-    @staticmethod
-    def tracer(service_name: str) -> OpenTelemetryTracer:
-        return OpenTelemetryTracer(trace.get_tracer(service_name), service_name)
+    def log_handler(self) -> logging.Handler:
+        return self._logger_provider.handler()
+
+    def meter(self, service_name: str) -> Meter:
+        return self._meter_provider.meter(service_name)
 
     def shutdown(self) -> None:
-        self._provider.shutdown()
-
-
-class OpenTelemetryTracer:
-    def __init__(self, tracer: Tracer, trace_name: str) -> None:
-        self._tracer = tracer
-        self._trace_name = trace_name
-
-    @property
-    def tracer(self) -> Tracer:
-        return self._tracer
-
-    def trace(self, span_name: str, static_attributes: dict[str, Any]) -> TraceType:
-        def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
-            @wraps(func)
-            async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-                with self._tracer.start_as_current_span(span_name) as span:
-                    self._enrich_span(span, static_attributes)
-                    try:
-                        result = await func(*args, **kwargs)
-                        span.set_status(Status(StatusCode.OK))
-                        return result
-
-                    except Exception:
-                        span.set_status(Status(StatusCode.ERROR))
-                        raise
-
-            return wrapper
-
-        return decorator
-
-    def _enrich_span(self, span, static_attributes: dict[str, Any]) -> None:
-
-        request_id = request_id_context.get()
-
-        if request_id:
-            span.set_attribute("request_id", request_id)
-            span.set_attribute("tracer_name", self._trace_name)
-
-        for k, v in static_attributes.items():
-            span.set_attribute(k, v.__str__())
+        self._trace_provider.shutdown()
+        self._logger_provider.shutdown()
+        self._meter_provider.shutdown()

@@ -44,3 +44,18 @@ def test_delegates_each_level_to_loguru_with_depth_one():
         fake_opt.exception.assert_called_once_with("exception message")
     finally:
         reset_singleton()
+
+
+def test_attach_adds_the_handler_as_a_loguru_sink():
+    reset_singleton()
+    try:
+        fake_loguru = MagicMock()
+        fake_handler = MagicMock()
+
+        with patch("pycraftcore.logger.adapter.loguru_logger.loguru_logger", fake_loguru):
+            logger = LoguruLogger()
+            logger.attach(fake_handler)
+
+        fake_loguru.add.assert_called_once_with(fake_handler)
+    finally:
+        reset_singleton()

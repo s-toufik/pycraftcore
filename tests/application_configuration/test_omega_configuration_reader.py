@@ -32,6 +32,8 @@ REQUIRED_ENV_VARS = (
     "DB_NAME",
     "DB_USER",
     "DB_PASSWORD",
+    "OTEL_HOST",
+    "OTEL_PORT",
 )
 MISSING_ENV_VARS = [name for name in REQUIRED_ENV_VARS if not os.environ.get(name)]
 

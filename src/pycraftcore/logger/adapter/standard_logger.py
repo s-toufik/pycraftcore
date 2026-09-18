@@ -1,10 +1,8 @@
 import logging
 import threading
 
-from loguru import logger as loguru_logger
 
-
-class LoguruLogger:
+class StandardLogger:
     _instance = None
     _lock = threading.Lock()
 
@@ -18,25 +16,25 @@ class LoguruLogger:
         return cls._instance
 
     def __init__logger(self):
-        self._logger = loguru_logger
-
-    def attach(self, handler: logging.Handler) -> None:
-        self._logger.add(handler)
+        self._logger = logging.getLogger("pycraftcore")
 
     def info(self, message: str) -> None:
-        self._logger.opt(depth=1).info(message)
+        self._logger.info(message, stacklevel=2)
 
     def warning(self, message: str) -> None:
-        self._logger.opt(depth=1).warning(message)
+        self._logger.warning(message, stacklevel=2)
 
     def error(self, message: str) -> None:
-        self._logger.opt(depth=1).error(message)
+        self._logger.error(message, stacklevel=2)
 
     def critical(self, message: str) -> None:
-        self._logger.opt(depth=1).critical(message)
+        self._logger.critical(message, stacklevel=2)
 
     def debug(self, message: str) -> None:
-        self._logger.opt(depth=1).debug(message)
+        self._logger.debug(message, stacklevel=2)
 
     def exception(self, message: str) -> None:
-        self._logger.opt(depth=1).exception(message)
+        self._logger.exception(message, stacklevel=2)
+
+    def attach(self, handler: logging.Handler) -> None:
+        self._logger.addHandler(handler)

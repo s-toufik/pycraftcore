@@ -2,7 +2,7 @@ connector:
   telemetry:
     name: OpenTelemetry
     type: telemetry
-    host: http://localhost
-    port: 4317
+    host: ${oc.env:OTEL_HOST}
+    port: ${oc.env:OTEL_PORT}
     auth:
       type: none
