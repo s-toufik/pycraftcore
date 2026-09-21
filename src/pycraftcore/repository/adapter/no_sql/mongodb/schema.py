@@ -7,4 +7,4 @@ class MongoConnector(BaseModel):
     default_name: str
     username: str | None
     password: str | None = Field(repr=False)
-    server_sellection_timeout: int
+    server_selection_timeout: int
