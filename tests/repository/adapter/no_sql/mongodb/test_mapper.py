@@ -52,19 +52,19 @@ def test_defaults_credentials_to_none_when_auth_has_no_username_or_password():
     assert settings.password is None
 
 
-def test_maps_pool_timeout_ms_to_server_sellection_timeout():
+def test_maps_pool_timeout_ms_to_server_selection_timeout_ms():
     connector = make_connector(NoAuth(type=AuthType.none), pool={"timeout_ms": 10000})
     mapper = MongoSettingsMapper(connector)
 
     settings = mapper()
 
-    assert settings.server_sellection_timeout == 10000
+    assert settings.server_selection_timeout_ms == 10000
 
 
-def test_defaults_server_sellection_timeout_when_missing():
+def test_defaults_server_selection_timeout_ms_when_missing():
     connector = make_connector(NoAuth(type=AuthType.none), pool={})
     mapper = MongoSettingsMapper(connector)
 
     settings = mapper()
 
-    assert settings.server_sellection_timeout == 5000
+    assert settings.server_selection_timeout_ms == 5000

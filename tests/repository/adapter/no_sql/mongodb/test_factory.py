@@ -14,7 +14,7 @@ def make_settings(**overrides) -> MongoConnector:
         default_name="app",
         username=None,
         password=None,
-        server_sellection_timeout=5000,
+        server_selection_timeout_ms=5000,
     )
     defaults.update(overrides)
     return MongoConnector(**defaults)
