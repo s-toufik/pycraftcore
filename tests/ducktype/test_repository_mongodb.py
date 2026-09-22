@@ -19,7 +19,7 @@ def test_mongo_repository_factory_satisfies_async_repository_factory():
         default_name="main",
         username=None,
         password=None,
-        server_sellection_timeout=5000,
+        server_selection_timeout_ms=5000,
     )
     factory: AsyncRepositoryFactory = MongoRepositoryFactory(settings)
 

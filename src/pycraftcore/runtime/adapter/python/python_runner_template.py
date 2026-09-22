@@ -111,7 +111,8 @@ def _safe_open(file, mode="r", *args, **kwargs):
 # Optional host bridge. When configured, each name in
 # "bridge_functions" becomes a function that round-trips to the
 # parent process over an authenticated loopback socket and returns the
-# host's text output.
+# host's output already decoded into a native Python value (whatever
+# JSON value the host placed under "output" in its response).
 _BRIDGE_FUNCTIONS = $bridge_functions
 _BRIDGE_HOST = os.environ.get("SANDBOX_BRIDGE_HOST")
 _BRIDGE_PORT = os.environ.get("SANDBOX_BRIDGE_PORT")
@@ -149,7 +150,7 @@ class _HostBridge:
         if response.get("error"):
             raise RuntimeError(response["error"])
 
-        return json.loads(response.get("output", "null"))
+        return response.get("output")
 
     def _readline(self, connection):
         while b"\\n" not in self._buffer:

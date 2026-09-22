@@ -15,5 +15,5 @@ class MongoSettingsMapper:
             default_name=self._database_connector.default_name,
             username=getattr(auth, "username", None),
             password=getattr(auth, "password", None),
-            server_sellection_timeout=self._database_connector.pool.get("timeout_ms", 5000),
+            server_selection_timeout_ms=self._database_connector.pool.get("timeout_ms", 5000),
         )

@@ -17,7 +17,7 @@ class MongoRepositoryFactory:
         if self._client is None:
             self._client = MongoClient(
                 self._connection_uri(),
-                serverSelectionTimeoutMS=self._settings.server_sellection_timeout,
+                serverSelectionTimeoutMS=self._settings.server_selection_timeout_ms,
             )
         return self._client
 
