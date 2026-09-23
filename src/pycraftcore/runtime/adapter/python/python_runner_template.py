@@ -53,7 +53,6 @@ import json
 import os
 import socket
 import sys
-import traceback
 
 if sys.platform == "linux":
     import resource
@@ -202,18 +201,12 @@ _globals = {
 
 try:
     exec(compile($code, "<sandbox>", "exec"), _globals)
-except Exception:
-    traceback.print_exc(file=sys.stderr)
+except Exception as exc:
+    print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
     sys.exit(1)
 
 if "result" not in _globals:
-    print(
-        json.dumps({
-            "error": "MissingResult",
-            "message": "Assign the final output to a variable named 'result'."
-        }),
-        file=sys.stderr,
-    )
+    print("Assign the final output to a variable named 'result'.", file=sys.stderr)
     sys.exit(1)
 
 print(

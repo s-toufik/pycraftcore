@@ -61,7 +61,17 @@ async def test_execute_requires_result_variable():
     output = await safe_code.execute()
 
     assert output.stdout == ""
-    assert "MissingResult" in output.stderr
+    assert output.stderr == "Assign the final output to a variable named 'result'."
+
+
+@pytest.mark.asyncio
+async def test_execute_reports_only_the_exception_message_on_a_code_error():
+    safe_code = PythonSafeCode(code="def f():\n    return 1 / 0\nresult = f()\n", code_timeout=10)
+
+    output = await safe_code.execute()
+
+    assert output.stdout == ""
+    assert output.stderr == "ZeroDivisionError: division by zero"
 
 
 @pytest.mark.asyncio

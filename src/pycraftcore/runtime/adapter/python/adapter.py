@@ -3,7 +3,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import traceback
 from string import Template
 
 from pycraftcore.runtime.adapter.python.python_runner_template import (
@@ -93,9 +92,7 @@ class PythonSafeCode:
         except NotImplementedError:
             return await asyncio.to_thread(self._execute_sync, temporary_script_path, env)
         except Exception as exception:
-            traceback.print_exc()
-            traceback_str: str = "".join(traceback.format_exception(exception))
-            return CodeStdout(stdout="", stderr=f"Subprocess error: {traceback_str}")
+            return CodeStdout(stdout="", stderr=f"Subprocess error: {exception}")
         finally:
             await asyncio.to_thread(os.unlink, temporary_script_path)
 
