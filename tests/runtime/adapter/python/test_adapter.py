@@ -178,6 +178,10 @@ def test_build_environment_does_not_leak_arbitrary_host_variables():
         "PYTHONDONTWRITEBYTECODE": "1",
         "PYTHONNOUSERSITE": "1",
         "PYTHON_COLORS": "0",
+        "MPLBACKEND": "Agg",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
     }
     assert "SECRET_TOKEN" not in environment
 

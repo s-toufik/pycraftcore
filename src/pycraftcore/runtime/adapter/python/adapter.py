@@ -52,6 +52,12 @@ class PythonSafeCode:
             "PYTHONDONTWRITEBYTECODE": "1",
             "PYTHONNOUSERSITE": "1",
             "PYTHON_COLORS": "0",
+            # Headless plotting and single-threaded BLAS keep matplotlib/numpy
+            # working without a display and within the memory limit.
+            "MPLBACKEND": "Agg",
+            "OMP_NUM_THREADS": "1",
+            "OPENBLAS_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": "1",
         }
         if sys.platform == "win32":
             environment["SYSTEMROOT"] = os.environ.get("SYSTEMROOT", "")
