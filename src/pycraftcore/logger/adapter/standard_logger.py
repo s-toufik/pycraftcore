@@ -35,6 +35,3 @@ class StandardLogger:
 
     def exception(self, message: str) -> None:
         self._logger.exception(message, stacklevel=2)
-
-    def attach(self, handler: logging.Handler) -> None:
-        self._logger.addHandler(handler)
