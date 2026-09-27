@@ -144,10 +144,10 @@ from pycraftcore.application_configuration.adapter.omega_configuration_reader im
     OmegaConfigurationReader,
 )
 from pycraftcore.application_configuration.enum.run_type_environment import RunTypeEnvironment
-from pycraftcore.logger.adapter.loguru_logger import LoguruLogger
+from pycraftcore.logger.adapter import StandardLogger
 
 reader = OmegaConfigurationReader(RunTypeEnvironment.deploy, Path("config"))
-loader = LoadApplicationConfiguration(reader, LoguruLogger())
+loader = LoadApplicationConfiguration(reader, StandardLogger())
 
 config = loader.load()
 
@@ -158,6 +158,30 @@ operation = config.operation.api("<operation_tag>")  # ApiOperation
 `config.connector`/`config.operation` return the concrete connector/operation type for a given tag (`.api()`,
 `.database()`, `.file()`, `.telemetry()` where applicable) instead of a raw dict — see
 `pycraftcore.application_configuration` for the full API.
+
+### Logging
+
+Standard `logging`, one format for every line. Call `configure_logging` once at startup:
+
+```python
+from pycraftcore.logger import configure_logging
+from pycraftcore.logger.adapter import StandardLogger
+
+configure_logging("INFO")  # level name or number
+logger = StandardLogger()
+logger.info("booted")
+```
+
+```
+2026-09-27 10:06:17.679 | INFO     | 1bddfefb-… | controller:execute:51 - stream request accepted
+```
+
+- The request id comes from `pycraftcore.context.request_id_context` (set by `RequestIDMiddleware`
+  from the `X-Request-ID` header): every line logged while it is set shows it, `-` otherwise. Do
+  not write it in the message.
+- Uvicorn's loggers are routed through the same format; `httpx`, `httpcore`, `mcp`, `pymongo` and
+  other chatty libraries stay at `WARNING` (`QUIET_LOGGERS`).
+- Calling it again replaces the console handler instead of adding a second one.
 
 ---
 

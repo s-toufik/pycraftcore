@@ -6,10 +6,10 @@ from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
 from opentelemetry.instrumentation.logging.handler import LoggingHandler
 from opentelemetry.sdk._logs import LoggerProvider as SdkLoggerProvider
 from opentelemetry.sdk._logs import LogRecordProcessor, ReadWriteLogRecord
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, ConsoleLogRecordExporter
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.resources import Resource
 
-from pycraftcore.http.context.request_context import request_id_context
+from pycraftcore.context.request_id_context import request_id_context
 
 
 class RequestIdLogRecordProcessor(LogRecordProcessor):
@@ -38,17 +38,17 @@ class OpenTelemetryLoggerProvider:
 
     @staticmethod
     def _configure_exporter(otlp_endpoint: str, provider: SdkLoggerProvider) -> None:
+
         if not otlp_endpoint:
-            provider.add_log_record_processor(BatchLogRecordProcessor(ConsoleLogRecordExporter()))
-        else:
-            provider.add_log_record_processor(
-                BatchLogRecordProcessor(
-                    OTLPLogExporter(
-                        endpoint=otlp_endpoint,
-                        insecure=True,
-                    )
+            return
+        provider.add_log_record_processor(
+            BatchLogRecordProcessor(
+                OTLPLogExporter(
+                    endpoint=otlp_endpoint,
+                    insecure=True,
                 )
             )
+        )
 
     def handler(self) -> logging.Handler:
         return LoggingHandler(level=logging.NOTSET, logger_provider=self._provider)

@@ -2,5 +2,8 @@ from contextvars import ContextVar
 
 from starlette.requests import Request
 
-request_id_context: ContextVar[str | None] = ContextVar("request_id", default=None)
+from pycraftcore.context.request_id_context import request_id_context
+
 request_context: ContextVar[Request | None] = ContextVar("request", default=None)
+
+__all__ = ["request_context", "request_id_context"]

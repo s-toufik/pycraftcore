@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pycraftcore"
-version = "1.6.0"
+version = "2.0.0"
 authors = [
     { name = "Toufik Saouchi", email = "toufik.saouchi@gmail.com" },
 ]
@@ -30,7 +30,6 @@ dependencies = [
     "pydantic>=2",
     "python-dotenv",
     "msgpack>=1.1.2",
-    "loguru>=0.7.3",
     "scipy>=1.17.1",
     "httpx",
     "tenacity",

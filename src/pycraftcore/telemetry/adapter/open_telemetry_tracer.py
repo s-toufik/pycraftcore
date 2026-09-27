@@ -4,7 +4,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from opentelemetry.trace import Span, Status, StatusCode, Tracer
 
-from pycraftcore.http.context.request_context import request_id_context
+from pycraftcore.context.request_id_context import request_id_context
 
 P = ParamSpec("P")
 R = TypeVar("R")
