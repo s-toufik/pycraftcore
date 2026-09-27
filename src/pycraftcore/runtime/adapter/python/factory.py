@@ -21,6 +21,6 @@ class PythonSafeCodeFactory:
             code_template=code_template,
             code_timeout=self._settings.code_timeout,
             max_memory_mb=self._settings.max_memory_mb,
-            vault_path=self._settings.vault_path,
+            working_directory=self._settings.working_directory,
             host_bridge_config=host_bridge,
         )
