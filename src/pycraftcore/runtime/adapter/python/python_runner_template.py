@@ -3,46 +3,174 @@ from string import Template
 
 
 _PYTHON_SAFE_BUILTINS: tuple[str, ...] = (
-    "abs",
-    "all",
-    "any",
+    # Constants
+    "Ellipsis",
+    "NotImplemented",
+    # Types and constructors
     "bool",
+    "bytearray",
+    "bytes",
+    "complex",
     "dict",
+    "float",
+    "frozenset",
+    "int",
+    "list",
+    "memoryview",
+    "object",
+    "range",
+    "set",
+    "slice",
+    "str",
+    "tuple",
+    "type",
+    # Classes and introspection
+    "callable",
+    "classmethod",
+    "delattr",
+    "dir",
+    "getattr",
+    "hasattr",
+    "hash",
+    "id",
+    "isinstance",
+    "issubclass",
+    "property",
+    "setattr",
+    "staticmethod",
+    "super",
+    # Iteration
+    "aiter",
+    "all",
+    "anext",
+    "any",
     "enumerate",
     "filter",
-    "float",
-    "int",
+    "iter",
     "len",
-    "list",
     "map",
+    "next",
+    "reversed",
+    "sorted",
+    "zip",
+    # Math
+    "abs",
+    "divmod",
     "max",
     "min",
     "pow",
-    "print",
-    "range",
-    "reversed",
     "round",
-    "set",
-    "sorted",
-    "str",
     "sum",
-    "tuple",
-    "zip",
+    # Conversion and formatting
+    "ascii",
+    "bin",
+    "chr",
+    "format",
+    "hex",
+    "oct",
+    "ord",
+    "print",
+    "repr",
+    # Exceptions
+    "ArithmeticError",
+    "AssertionError",
+    "AttributeError",
+    "BaseException",
+    "BaseExceptionGroup",
+    "BufferError",
+    "EOFError",
+    "Exception",
+    "ExceptionGroup",
+    "FileExistsError",
+    "FileNotFoundError",
+    "FloatingPointError",
+    "GeneratorExit",
+    "ImportError",
+    "IndexError",
+    "IsADirectoryError",
+    "KeyError",
+    "LookupError",
+    "MemoryError",
+    "ModuleNotFoundError",
+    "NameError",
+    "NotADirectoryError",
+    "NotImplementedError",
+    "OSError",
+    "OverflowError",
+    "PermissionError",
+    "RecursionError",
+    "ReferenceError",
+    "RuntimeError",
+    "StopAsyncIteration",
+    "StopIteration",
+    "TimeoutError",
+    "TypeError",
+    "UnboundLocalError",
+    "UnicodeDecodeError",
+    "UnicodeEncodeError",
+    "UnicodeError",
+    "ValueError",
+    "ZeroDivisionError",
+    # Warnings
+    "BytesWarning",
+    "DeprecationWarning",
+    "FutureWarning",
+    "PendingDeprecationWarning",
+    "RuntimeWarning",
+    "UserWarning",
+    "Warning",
 )
 
 PYTHON_ALLOWLIST: frozenset[str] = frozenset(
     {
-        "math",
-        "statistics",
-        "datetime",
-        "re",
-        "json",
-        "collections",
-        "itertools",
-        "functools",
+        # Data and plotting
         "pandas",
         "numpy",
         "matplotlib",
+        "mpl_toolkits",
+        # Date and time
+        "datetime",
+        "time",
+        "calendar",
+        "zoneinfo",
+        "dateutil",
+        # Math and numbers
+        "math",
+        "cmath",
+        "statistics",
+        "decimal",
+        "fractions",
+        "numbers",
+        "random",
+        # Text
+        "re",
+        "string",
+        "textwrap",
+        "difflib",
+        "unicodedata",
+        # Data formats
+        "json",
+        "csv",
+        "base64",
+        "hashlib",
+        "uuid",
+        # Data structures and functional tools
+        "collections",
+        "itertools",
+        "functools",
+        "operator",
+        "heapq",
+        "bisect",
+        "array",
+        "copy",
+        "pprint",
+        # Typing and class helpers
+        "typing",
+        "dataclasses",
+        "enum",
+        "abc",
+        "contextlib",
+        "warnings",
     }
 )
 
@@ -53,7 +181,6 @@ import json
 import os
 import socket
 import sys
-import traceback
 
 if sys.platform == "linux":
     import resource
@@ -76,43 +203,47 @@ def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
         raise ImportError(f"Import '{root}' is not allowed.")
     return _real_import(name, globals, locals, fromlist, level)
 
-# Optional vault directory. When set, file access is confined to it; when None,
+# Optional working directory. When set, file access is confined to it; when None,
 # sandbox has no filesystem access at all.
-VAULT = $vault
+WORKING_DIRECTORY = $working_directory
 _real_open = builtins.open
 
-def _resolve_in_vault(path: str) -> str:
-    vault_root = os.path.normcase(os.path.realpath(VAULT))
-    candidate = path if os.path.isabs(path) else os.path.join(VAULT, path)
+def _resolve_in_working_directory(path: str) -> str:
+    root = os.path.normcase(os.path.realpath(WORKING_DIRECTORY))
+    candidate = path if os.path.isabs(path) else os.path.join(WORKING_DIRECTORY, path)
     resolved = os.path.realpath(candidate)
 
     try:
-        common = os.path.commonpath((os.path.normcase(resolved), vault_root))
+        common = os.path.commonpath((os.path.normcase(resolved), root))
     except ValueError:
         common = None
-    if common != vault_root:
-        raise PermissionError(f"Path {path!r} is outside the vault.")
+    if common != root:
+        raise PermissionError(f"Path {path!r} is outside the working directory.")
 
     return resolved
 
 
 def _safe_open(file, mode="r", *args, **kwargs):
-    if VAULT is None:
-        raise PermissionError("File access is not allowed: no vault is configured.")
+    if WORKING_DIRECTORY is None:
+        raise PermissionError("File access is not allowed: no working directory is configured.")
 
     return _real_open(
-        _resolve_in_vault(os.fspath(file)),
+        _resolve_in_working_directory(os.fspath(file)),
         mode,
         *args,
         **kwargs,
     )
 
 
-# Optional host bridge. When configured, each name in
-# "bridge_functions" becomes a function that round-trips to the
-# parent process over an authenticated loopback socket and returns the
-# host's output already decoded into a native Python value (whatever
-# JSON value the host placed under "output" in its response).
+# Optional host bridge. When configured, each name in "bridge_functions"
+# becomes a keyword-only function that round-trips to HostBridgeServer in the
+# parent process over an authenticated loopback socket. It returns the host's
+# output already decoded into a native Python value, and raises ToolError with
+# the host's message when the call fails.
+class ToolError(Exception):
+    pass
+
+
 _BRIDGE_FUNCTIONS = $bridge_functions
 _BRIDGE_HOST = os.environ.get("SANDBOX_BRIDGE_HOST")
 _BRIDGE_PORT = os.environ.get("SANDBOX_BRIDGE_PORT")
@@ -128,11 +259,11 @@ class _HostBridge:
             self._socket = socket.create_connection((_BRIDGE_HOST, int(_BRIDGE_PORT)))
         return self._socket
 
-    def call(self, tool, arguments):
+    def call(self, function, arguments):
         request = json.dumps(
             {
                 "token": _BRIDGE_TOKEN,
-                "tool": tool,
+                "function": function,
                 "arguments": arguments,
             }
         )
@@ -147,8 +278,8 @@ class _HostBridge:
             self._readline(connection)
         )
 
-        if response.get("error"):
-            raise RuntimeError(response["error"])
+        if not response.get("ok"):
+            raise ToolError(response.get("error") or f"{function} failed.")
 
         return response.get("output")
 
@@ -171,10 +302,11 @@ class _HostBridge:
 _bridge = _HostBridge()
 
 
-def _make_bridge_proxy(tool):
+def _make_bridge_proxy(function):
     def _proxy(**arguments):
-        return _bridge.call(tool, arguments)
+        return _bridge.call(function, arguments)
 
+    _proxy.__name__ = _proxy.__qualname__ = function
     return _proxy
 
 
@@ -196,24 +328,19 @@ _SAFE_BUILTINS["open"] = _safe_open
 _globals = {
     "__builtins__": _SAFE_BUILTINS,
     "__name__": "__sandbox__",
-    "VAULT": VAULT,
+    "WORKING_DIRECTORY": WORKING_DIRECTORY,
+    "ToolError": ToolError,
     **_BRIDGE_PROXIES
 }
 
 try:
     exec(compile($code, "<sandbox>", "exec"), _globals)
-except Exception:
-    traceback.print_exc(file=sys.stderr)
+except Exception as exc:
+    print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
     sys.exit(1)
 
 if "result" not in _globals:
-    print(
-        json.dumps({
-            "error": "MissingResult",
-            "message": "Assign the final output to a variable named 'result'."
-        }),
-        file=sys.stderr,
-    )
+    print("Assign the final output to a variable named 'result'.", file=sys.stderr)
     sys.exit(1)
 
 print(

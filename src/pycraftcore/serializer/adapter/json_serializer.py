@@ -1,7 +1,7 @@
-import json
-from dataclasses import asdict, is_dataclass
+from dataclasses import is_dataclass
 from typing import Any, TypeVar
 
+import orjson
 from pydantic import TypeAdapter
 
 T = TypeVar("T")
@@ -12,7 +12,7 @@ class JSONSerializer:
     def serialize(inputs: Any) -> str:
         if not is_dataclass(inputs) or isinstance(inputs, type):
             raise TypeError("serialize expects a dataclass instance")
-        return json.dumps(asdict(inputs))
+        return orjson.dumps(inputs).decode()
 
     @staticmethod
     def deserialize(inputs: str, cls: type[T]) -> T:

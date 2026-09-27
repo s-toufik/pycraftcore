@@ -3,7 +3,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import traceback
 from string import Template
 
 from pycraftcore.runtime.adapter.python.python_runner_template import (
@@ -22,14 +21,14 @@ class PythonSafeCode:
         code_template: Template | None = None,
         code_timeout: int | None = 10,
         max_memory_mb: int | None = 256,
-        vault_path: str | None = None,
+        working_directory: str | None = None,
         host_bridge_config: HostBridgeConfig | None = None,
     ) -> None:
         self._code = code
         self._code_template = code_template or _PYTHON_RUNNER_TEMPLATE
         self._code_timeout = code_timeout
         self._max_memory_mb = max_memory_mb
-        self._vault_path = os.path.realpath(vault_path) if vault_path else None
+        self._working_directory = os.path.realpath(working_directory) if working_directory else None
         self._host_bridge_config = host_bridge_config
 
     def _parse_code(self) -> str:
@@ -42,7 +41,7 @@ class PythonSafeCode:
             safe_builtins=repr(_PYTHON_SAFE_BUILTINS),
             code=repr(self._code),
             max_memory_mb=self._max_memory_mb,
-            vault=repr(self._vault_path),
+            working_directory=repr(self._working_directory),
             bridge_functions=repr(list(function_names)),
         )
 
@@ -53,6 +52,12 @@ class PythonSafeCode:
             "PYTHONDONTWRITEBYTECODE": "1",
             "PYTHONNOUSERSITE": "1",
             "PYTHON_COLORS": "0",
+            # Headless plotting and single-threaded BLAS keep matplotlib/numpy
+            # working without a display and within the memory limit.
+            "MPLBACKEND": "Agg",
+            "OMP_NUM_THREADS": "1",
+            "OPENBLAS_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": "1",
         }
         if sys.platform == "win32":
             environment["SYSTEMROOT"] = os.environ.get("SYSTEMROOT", "")
@@ -79,10 +84,10 @@ class PythonSafeCode:
 
     async def execute(self) -> CodeStdout:
 
-        if self._vault_path is not None and not os.path.isdir(self._vault_path):
+        if self._working_directory is not None and not os.path.isdir(self._working_directory):
             return CodeStdout(
                 stdout="",
-                stderr=f"Subprocess error: vault directory does not exist {self._vault_path}",
+                stderr=f"Subprocess error: working directory does not exist {self._working_directory}",
             )
 
         runner_src: str = self._parse_code()
@@ -93,9 +98,7 @@ class PythonSafeCode:
         except NotImplementedError:
             return await asyncio.to_thread(self._execute_sync, temporary_script_path, env)
         except Exception as exception:
-            traceback.print_exc()
-            traceback_str: str = "".join(traceback.format_exception(exception))
-            return CodeStdout(stdout="", stderr=f"Subprocess error: {traceback_str}")
+            return CodeStdout(stdout="", stderr=f"Subprocess error: {exception}")
         finally:
             await asyncio.to_thread(os.unlink, temporary_script_path)
 
@@ -106,7 +109,7 @@ class PythonSafeCode:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env,
-            cwd=self._vault_path,
+            cwd=self._working_directory,
         )
         try:
             stdout_bytes, stderr_bytes = await asyncio.wait_for(

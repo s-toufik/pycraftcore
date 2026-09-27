@@ -61,7 +61,17 @@ async def test_execute_requires_result_variable():
     output = await safe_code.execute()
 
     assert output.stdout == ""
-    assert "MissingResult" in output.stderr
+    assert output.stderr == "Assign the final output to a variable named 'result'."
+
+
+@pytest.mark.asyncio
+async def test_execute_reports_only_the_exception_message_on_a_code_error():
+    safe_code = PythonSafeCode(code="def f():\n    return 1 / 0\nresult = f()\n", code_timeout=10)
+
+    output = await safe_code.execute()
+
+    assert output.stdout == ""
+    assert output.stderr == "ZeroDivisionError: division by zero"
 
 
 @pytest.mark.asyncio
@@ -168,6 +178,10 @@ def test_build_environment_does_not_leak_arbitrary_host_variables():
         "PYTHONDONTWRITEBYTECODE": "1",
         "PYTHONNOUSERSITE": "1",
         "PYTHON_COLORS": "0",
+        "MPLBACKEND": "Agg",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
     }
     assert "SECRET_TOKEN" not in environment
 

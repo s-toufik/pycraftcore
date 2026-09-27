@@ -14,7 +14,7 @@ class Point:
 def test_serialize_returns_json_string():
     result = JSONSerializer.serialize(Point(x=1, y=2))
 
-    assert result == '{"x": 1, "y": 2}'
+    assert result == '{"x":1,"y":2}'
 
 
 def test_round_trip_preserves_data():

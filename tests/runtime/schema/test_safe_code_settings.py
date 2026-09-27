@@ -6,12 +6,12 @@ def test_safe_code_settings_defaults():
 
     assert settings.code_timeout == 10
     assert settings.max_memory_mb == 256
-    assert settings.vault_path is None
+    assert settings.working_directory is None
 
 
 def test_safe_code_settings_accepts_overrides():
-    settings = SafeCodeSettings(code_timeout=5, max_memory_mb=128, vault_path="/vault")
+    settings = SafeCodeSettings(code_timeout=5, max_memory_mb=128, working_directory="/work")
 
     assert settings.code_timeout == 5
     assert settings.max_memory_mb == 128
-    assert settings.vault_path == "/vault"
+    assert settings.working_directory == "/work"
