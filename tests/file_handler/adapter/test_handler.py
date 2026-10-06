@@ -30,6 +30,16 @@ def test_handler_round_trips_txt_data(tmp_path):
     assert result == "hello world"
 
 
+def test_handler_round_trips_svg_data(tmp_path):
+    file_path = tmp_path / "plot.svg"
+    svg = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>'
+
+    Handler(str(file_path)).write(svg)
+    result = Handler(str(file_path)).read()
+
+    assert result == svg
+
+
 def test_handler_raises_for_unsupported_extension(tmp_path):
     file_path = tmp_path / "config.foo"
     file_path.write_text("{}")

@@ -1,217 +1,286 @@
 # pycraftcore
 
-`pycraftcore` is a reusable technical infrastructure library for Python applications: configuration, resilient HTTP
-clients, a pooled async SQLite repository, a sandboxed Python code runner, safe SQL validation, serialization, and a
-handful of other adapters — small, swappable building blocks rather than a framework.
+The shared technical foundation of the homelab's Python services: configuration, logging, telemetry, resilient HTTP, database repositories, safe SQL and a sandbox for running untrusted Python. Small, swappable building blocks rather than a framework — every module is an interface (a port) plus the implementations behind it (adapters).
 
-**Design principles:** Modularity · Reusability · Maintainability
+**[Using pycraftcore](#using-pycraftcore)** — install it and use each module in your service.
+**[Working on pycraftcore](#working-on-pycraftcore)** — how it is organised and how to release it.
 
----
-
-## Table of Contents
-
-- [Functionality](#functionality)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Development](#development)
-
----
-
-## Functionality
-
-| Module | Package | What it gives you |
-|---|---|---|
-| Configuration Management | `application_configuration` | Environment-driven YAML configuration for connectors and operations, validated and typed |
-| Authentication | `application_configuration` | Shared auth models (none / basic / token) for any connector |
-| Logging | `logger` | Structured application logging |
-| Telemetry & Observability | `telemetry` | Distributed tracing, exportable to console or an OTLP collector |
-| HTTP Client Utilities | `http` | Resilient HTTP client with retries, circuit breaking, and tracing |
-| Repository / SQLite | `repository` | Async SQLite repository with real connection pooling for concurrent access |
-| Query Language / SQL Safety | `query_language` | Validates that a SQL statement is read-only before it reaches a database |
-| Runtime / Sandboxed Execution | `runtime` | Runs untrusted Python code in an isolated process with resource limits |
-| Serialization | `serialization` | JSON, dict, and binary (msgpack) serialization for dataclasses |
-| Scientific computation engine | `computation` | Financial arithmetic and calculus (integration, interpolation) |
-| File handler | `file_handler` | Read/write files by extension, pluggable for new formats |
-| Profiler | `profiler` | Async function profiling decorator |
-
----
-
-## Installation
-
-**Stable release** (recommended for production):
-
-```bash
-pip install pycraftcore
+```text
+  your service (agent-orchestrator, agent-toolbox, …)
+        │
+        ▼
+  ┌─ pycraftcore ─────────────────────────────────────────────────────────────┐
+  │                                                                           │
+  │  set up      application_configuration · logger · telemetry · context     │
+  │  talk out    http · resilient_http (retry + circuit_breaker)              │
+  │  store       repository: SQLite · PostgreSQL · MongoDB                    │
+  │  run safely  query_language (read-only SQL) · runtime (Python sandbox)    │
+  │  utilities   file_handler · serializer · computation_engine · profiler    │
+  │  …           new modules, same port + adapter shape                       │
+  │                                                                           │
+  └───────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Development build** (latest features, may be unstable):
-
-```bash
-pip install -i https://test.pypi.org/simple/ pycraftcore
-```
-> [!WARNING]
-> The development build is intended for testing only and should **not** be used in production.
-
 ---
 
-## Configuration
+## Using pycraftcore
 
-Services are configured using YAML files combined with environment variables.
+### Install
 
-**Directory layout** — a `root.yml` plus per-kind subdirectories, one file per item:
+```bash
+uv add pycraftcore          # or: pip install pycraftcore
+```
 
-| Path | Description |
+Requires Python 3.14. Development builds are published to TestPyPI (`pip install -i https://test.pypi.org/simple/ pycraftcore`); use them for testing only.
+
+### What's inside
+
+Each module stands on its own: use the ones you need. The modules today (new ones follow the same shape, see [Working on pycraftcore](#working-on-pycraftcore)):
+
+| Package | What it gives you |
 |---|---|
-| `root.yml` | Root application configuration (`env`, `run`) |
-| `connector/*.yml` | Data source connector definitions |
-| `operation/*.yml` | Retrieval operations and business use cases |
+| `application_configuration` | YAML configuration (connectors and operations) driven by environment variables, loaded into typed objects |
+| `authentication` | The auth models a connector can use: none, basic, token |
+| `logger` | One log format for the whole process, with the request id on every line |
+| `context` | `request_id_context`, the request id shared by logs, telemetry and outgoing calls |
+| `telemetry` | OpenTelemetry traces, metrics and logs, exported to an OTLP collector (or nothing) |
+| `http` | Async HTTP clients (httpx, aiohttp), request-id and request-context middlewares, retry policies |
+| `resilient_http` | An HTTP transport with retries and a circuit breaker built in |
+| `retry`, `circuit_breaker` | The two policies on their own, for any async call |
+| `repository` | Async repositories built from a database connector — today SQLite (pooled), PostgreSQL and MongoDB |
+| `query_language` | Checks that a SQL statement is read-only, and translates between dialects, before it reaches a database |
+| `runtime` | Runs untrusted Python in a separate process with memory, time and module limits; optionally lets it call your functions |
+| `file_handler` | Read and write files by extension (today csv, json, yml, md, txt, svg); a new format is a new reader/writer pair |
+| `serializer` | JSON, dict and binary (msgpack) serialisation of dataclasses |
+| `computation_engine` | Numerical helpers: financial arithmetic, integration, interpolation |
+| `profiler` | `@profiled`, an async profiling decorator |
 
-**Environment variables** referenced from YAML via `${oc.env:NAME}`:
+### Configuration
 
-| Variable | Used by |
+A service's configuration is a folder of YAML files, with values taken from environment variables (`${oc.env:NAME}`):
+
+| Path | What it holds |
 |---|---|
-| `APP_ENV` | `root.yml` → `env` |
-| `<CONNECTOR_NAME>_API_KEY` | a connector's `auth.key_value` |
-| `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | a database connector's `host`/`default_name`/`auth` |
-
-This list isn't exhaustive — any config value can be templated the same way; check the YAML under `config/<env>/`
-for what a given deployment actually reads.
-
-**Connector example** (`connector/<tag>.yml`):
+| `root.yml` | The environment and the list of connectors and operations in use |
+| `<env>/connector/*.yml` | Where things are: APIs, databases, files, MCP servers, telemetry |
+| `<env>/operation/*.yml` | What you do with them; each operation points at a connector |
 
 ```yaml
+# <env>/connector/api.yml
 connector:
-  <connector_tag>:
-    name: <connector name>
+  weather:
+    name: weather
     type: api
-    base_url: <base url>
+    base_url: https://<api-host>
     timeout: 5
     retry: 3
     auth:
       type: token
       key_name: apikey
-      key_value: ${oc.env:connector_api_key}
+      key_value: ${oc.env:WEATHER_API_KEY}
 ```
 
-**Operation example** (`operation/<tag>.yml`) — references a connector by tag:
-
 ```yaml
+# <env>/operation/weather.yml
 operation:
-  <operation_tag>:
-    name: <operation name>
+  forecast:
+    name: forecast
     type: api
-    connector: ${connector.<connector_tag>}
-    endpoint: /<path>
+    connector: ${connector.weather}
+    endpoint: /forecast
     method: GET
     parameters:
-      <param>: <value>
+      days: 3
 ```
 
-**Root example** (`root.yml`) — wires everything together for a given environment:
-
 ```yaml
+# root.yml
 application_configuration:
   env: ${oc.env:APP_ENV,debug}
   run: async
-
   connector:
     api:
-      <connector_tag>: ${connector.<connector_tag>}
-    file:
-      <connector_tag>: ${connector.<connector_tag>}
-    database:
-      <connector_tag>: ${connector.<connector_tag>}
-    telemetry:
-      <connector_tag>: ${connector.<connector_tag>}
-    
+      weather: ${connector.weather}
   operation:
-    <operation_tag>: ${operation.<operation_tag>}
-    # ...
+    forecast: ${operation.forecast}
 ```
-
-Connectors and operations both declare a `type`, which determines which fields they take and which concrete object
-they load as.
-
-**Using it in code:**
 
 ```python
 from pathlib import Path
 
-from pycraftcore.application_configuration.adapter.load_application_configuration import (
+from pycraftcore.application_configuration.adapter import (
     LoadApplicationConfiguration,
-)
-from pycraftcore.application_configuration.adapter.omega_configuration_reader import (
     OmegaConfigurationReader,
 )
-from pycraftcore.application_configuration.enum.run_type_environment import RunTypeEnvironment
+from pycraftcore.application_configuration.enum import RunTypeEnvironment
 from pycraftcore.logger.adapter import StandardLogger
 
-reader = OmegaConfigurationReader(RunTypeEnvironment.deploy, Path("config"))
-loader = LoadApplicationConfiguration(reader, StandardLogger())
+reader = OmegaConfigurationReader(RunTypeEnvironment.debug, Path("config"))
+config = LoadApplicationConfiguration(reader, StandardLogger()).load()
 
-config = loader.load()
-
-connector = config.connector.api("<connector_tag>")  # ApiConnector
-operation = config.operation.api("<operation_tag>")  # ApiOperation
+connector = config.connector.api("weather")  # ApiConnector
+operation = config.operation.api("forecast")  # ApiOperation
 ```
 
-`config.connector`/`config.operation` return the concrete connector/operation type for a given tag (`.api()`,
-`.database()`, `.file()`, `.telemetry()` where applicable) instead of a raw dict — see
-`pycraftcore.application_configuration` for the full API.
+`config.connector` returns typed connectors per kind (`.api()`, `.database()`, `.file()`, `.mcp()`, `.telemetry()`) and `config.operation` typed operations (`.api()`, `.file()`); the `type` field of each entry decides which fields it takes.
 
-### Logging
-
-Standard `logging`, one format for every line. Call `configure_logging` once at startup:
+### Logging and the request id
 
 ```python
 from pycraftcore.logger import configure_logging
 from pycraftcore.logger.adapter import StandardLogger
 
-configure_logging("INFO")  # level name or number
+configure_logging("INFO")
 logger = StandardLogger()
 logger.info("booted")
 ```
 
-```
+```text
 2026-09-27 10:06:17.679 | INFO     | 1bddfefb-… | controller:execute:51 - stream request accepted
 ```
 
-- The request id comes from `pycraftcore.context.request_id_context` (set by `RequestIDMiddleware`
-  from the `X-Request-ID` header): every line logged while it is set shows it, `-` otherwise. Do
-  not write it in the message.
-- Uvicorn's loggers are routed through the same format; `httpx`, `httpcore`, `mcp`, `pymongo` and
-  other chatty libraries stay at `WARNING` (`QUIET_LOGGERS`).
-- Calling it again replaces the console handler instead of adding a second one.
+- The third column is `request_id_context`. In a web service, `RequestIDMiddleware` (`pycraftcore.http.middleware`) sets it from the `X-Request-ID` header; every line logged during that request shows it, `-` otherwise. Don't write it in your messages.
+- Uvicorn logs use the same format; chatty libraries (httpx, mcp, pymongo…) stay at `WARNING`.
+- Calling `configure_logging` again replaces the handler rather than adding a second one.
+
+### Telemetry
+
+```python
+from pycraftcore.application_configuration.enum import RunTypeEnvironment
+from pycraftcore.telemetry.adapter import OpenTelemetryProvider
+
+telemetry = OpenTelemetryProvider(
+    service_name="my-service",
+    environment=RunTypeEnvironment.debug,
+    otlp_endpoint="<collector-host>:<port>",  # None: nothing is exported
+)
+tracer = telemetry.tracer("my-service")
+```
+
+Spans and log records carry the request id as an attribute, so logs and traces line up in Grafana.
+
+### Resilient HTTP
+
+A transport that retries what is worth retrying and stops calling a backend that keeps failing:
+
+```python
+from pycraftcore.circuit_breaker.configuration import CircuitBreakerSettings
+from pycraftcore.http.configuration import HttpClientSettings, LimitsSettings
+from pycraftcore.http.policy.http_error_policy import is_business_error, is_retryable
+from pycraftcore.resilient_http.adapter import ResilientTransportFactory
+from pycraftcore.resilient_http.configuration import ResilientHttpSettings
+from pycraftcore.retry.configuration import RetrySettings
+
+settings = ResilientHttpSettings(
+    http=HttpClientSettings(limits=LimitsSettings(timeout=10)),
+    retry=RetrySettings(
+        retry_count=3, retry_delay=1, max_retry_delay=20, should_retry=is_retryable
+    ),
+    circuit_breaker=CircuitBreakerSettings(
+        failure_threshold=3, recovery_timeout=30, is_excluded=is_business_error, name="weather"
+    ),
+)
+client = ResilientTransportFactory(
+    settings=settings, trace_manager=tracer, logger=logger
+).create_async_client()
+```
+
+`client` is an `httpx.AsyncClient`: pass it to any library that accepts one.
+
+### Databases
+
+Repositories are built from a database connector and share one interface, `AsyncRepository.execute(statement)`:
+
+```python
+from pycraftcore.repository.adapter import SqliteRepositoryFactory, SqliteSettingsMapper
+
+factory = SqliteRepositoryFactory(SqliteSettingsMapper(config.connector.database("users"))())
+repository = await factory.connect()
+rows = await repository.execute("SELECT id, email FROM users LIMIT 10")
+await factory.disconnect()
+```
+
+`PostgresRepositoryFactory` / `PostgresSettingsMapper` and `MongoRepositoryFactory` / `MongoSettingsMapper` work the same way, and so will any database added later: a factory, a settings mapper and a repository behind the same `AsyncRepository` port.
+
+### Read-only SQL
+
+```python
+from pycraftcore.query_language.adapter import SqlHandlerFactory
+
+statement = SqlHandlerFactory()("SELECT * FROM users", dialect="sqlite").transpile()
+```
+
+`transpile()` raises when the statement writes, deletes or changes the schema, so only reads reach the database.
+
+### Running untrusted Python
+
+```python
+from pycraftcore.runtime.adapter import PythonSafeCodeFactory
+from pycraftcore.runtime.schema import CodeResult, SafeCodeSettings
+
+factory = PythonSafeCodeFactory(settings=SafeCodeSettings(code_timeout=30, max_memory_mb=256))
+output = await factory(code="import math\nresult = math.sqrt(2)").execute()
+print(CodeResult.from_stdout(output.stdout).value)  # 1.4142135623730951
+```
+
+- The code runs in its own process; only the modules in `PYTHON_ALLOWLIST` can be imported (pandas, numpy, matplotlib, datetime…).
+- `working_directory` in `SafeCodeSettings` confines file access to one folder.
+- With a `HostBridgeServer`, the code can call functions of your service as if they were local — this is how agent-toolbox lets sandboxed code use its other tools.
 
 ---
 
-## Development
+## Working on pycraftcore
 
-### Pre-commit hooks
+### How a module is organised
 
-This repo uses [pre-commit](https://pre-commit.com) to run the unit test suite before every commit and push (see
-`.pre-commit-config.yaml`). Git hooks live under `.git/hooks/` and aren't tracked by git, so after cloning or pulling
-this change, install them once:
+Every package follows the same shape, so a new backend is a new adapter, never a change for the services that use the port:
+
+```text
+  pycraftcore/<module>/
+  ├── port/            Protocols the services depend on (AsyncRepository, Code, Logger…)
+  ├── adapter/         Implementations (SqliteRepository, PythonSafeCode, StandardLogger…)
+  ├── configuration/   Pydantic settings objects (RetrySettings, CircuitBreakerSettings…)
+  ├── schema/          Data passed across the port (CodeResult, SafeCodeSettings…)
+  └── enum/            Fixed choices (ConnectorType, HttpMethod…)
+```
+
+Not every module needs every folder: add a folder when it has something to hold.
+
+### Design rules
+
+- Services import the **port** and receive an adapter; they never construct a third-party client themselves.
+- Adapters are thin: they translate between the port and the library, and keep library types out of the port.
+- Settings are validated pydantic models; nothing reads environment variables except the configuration loader.
+- Every public module is typed: `ty` runs in strict mode.
+
+### Adding a module or an adapter
+
+1. Define the protocol in `<module>/port/`.
+2. Implement it in `<module>/adapter/`, with its settings in `configuration/` and the data it exchanges in `schema/`.
+3. Export the public names from the package's `__init__.py`.
+4. Add tests under `tests/<module>/`, and the module to [What's inside](#whats-inside) — with a short example under Using pycraftcore if services will use it directly.
+
+### Tests and checks
+
+```bash
+make install_dev    # uv sync --group dev
+make check          # ruff + ty + pytest
+make test
+make lint / make fix / make format / make typecheck
+uv run pytest --cov=pycraftcore --cov-report=term-missing   # coverage per module
+```
+
+Pre-commit runs the test suite before every commit and push:
 
 ```bash
 uv run pre-commit install --hook-type pre-commit --hook-type pre-push
 ```
 
-After that, `git commit` and `git push` will run `uv run pytest` automatically and abort on failure. To run the
-hooks manually against the whole repo:
+### Releasing
 
-```bash
-uv run pre-commit run --all-files --hook-stage pre-commit
-```
+1. Bump `version` in `pyproject.toml`.
+2. `make build`.
+3. `make publish_dev` to TestPyPI (needs `TEST_PYPI_TOKEN`), try it in a service, then `make publish` to PyPI (needs `RELEASE_PYPI_TOKEN`).
+4. Raise the minimum version in the services that need the change (`pycraftcore>=…` in their `pyproject.toml`), then `uv lock --upgrade-package pycraftcore`.
 
-### Makefile commands
-
-```bash
-make install_dev   # uv sync --group dev
-make test           # uv run pytest
-make lint            # uv run ruff check
-make format          # uv run ruff format
-make typecheck        # uv run ty check (strict mode)
-```
-
-Run `pytest --cov=pycraftcore --cov-report=term-missing` for a coverage breakdown by module.
+To work on pycraftcore and a service at the same time, point the service at your checkout with an editable path dependency in its `pyproject.toml`: `pycraftcore = { path = "../pycraftcore", editable = true }` under `[tool.uv.sources]`.

@@ -66,8 +66,11 @@ class HostBridgeServer:
                 if over_quota:
                     break
 
-        except ConnectionError, asyncio.CancelledError:
+        except ConnectionError:
             pass
+
+        except asyncio.CancelledError:
+            raise
 
         finally:
             writer.close()
