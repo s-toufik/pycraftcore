@@ -50,7 +50,7 @@ Each module stands on its own: use the ones you need. The modules today (new one
 | `repository` | Async repositories built from a database connector — today SQLite (pooled), PostgreSQL and MongoDB |
 | `query_language` | Checks that a SQL statement is read-only, and translates between dialects, before it reaches a database |
 | `runtime` | Runs untrusted Python in a separate process with memory, time and module limits; optionally lets it call your functions |
-| `file_handler` | Read and write files by extension (today csv, json, yml, md, txt); a new format is a new reader/writer pair |
+| `file_handler` | Read and write files by extension (today csv, json, yml, md, txt, svg); a new format is a new reader/writer pair |
 | `serializer` | JSON, dict and binary (msgpack) serialisation of dataclasses |
 | `computation_engine` | Numerical helpers: financial arithmetic, integration, interpolation |
 | `profiler` | `@profiled`, an async profiling decorator |
@@ -118,7 +118,7 @@ from pycraftcore.logger.adapter import StandardLogger
 reader = OmegaConfigurationReader(RunTypeEnvironment.debug, Path("config"))
 config = LoadApplicationConfiguration(reader, StandardLogger()).load()
 
-connector = config.connector.api("weather")   # ApiConnector
+connector = config.connector.api("weather")  # ApiConnector
 operation = config.operation.api("forecast")  # ApiOperation
 ```
 
@@ -152,7 +152,7 @@ from pycraftcore.telemetry.adapter import OpenTelemetryProvider
 telemetry = OpenTelemetryProvider(
     service_name="my-service",
     environment=RunTypeEnvironment.debug,
-    otlp_endpoint="<collector-host>:<port>",   # None: nothing is exported
+    otlp_endpoint="<collector-host>:<port>",  # None: nothing is exported
 )
 tracer = telemetry.tracer("my-service")
 ```
@@ -173,12 +173,16 @@ from pycraftcore.retry.configuration import RetrySettings
 
 settings = ResilientHttpSettings(
     http=HttpClientSettings(limits=LimitsSettings(timeout=10)),
-    retry=RetrySettings(retry_count=3, retry_delay=1, max_retry_delay=20, should_retry=is_retryable),
+    retry=RetrySettings(
+        retry_count=3, retry_delay=1, max_retry_delay=20, should_retry=is_retryable
+    ),
     circuit_breaker=CircuitBreakerSettings(
         failure_threshold=3, recovery_timeout=30, is_excluded=is_business_error, name="weather"
     ),
 )
-client = ResilientTransportFactory(settings=settings, trace_manager=tracer, logger=logger).create_async_client()
+client = ResilientTransportFactory(
+    settings=settings, trace_manager=tracer, logger=logger
+).create_async_client()
 ```
 
 `client` is an `httpx.AsyncClient`: pass it to any library that accepts one.
@@ -216,7 +220,7 @@ from pycraftcore.runtime.schema import CodeResult, SafeCodeSettings
 
 factory = PythonSafeCodeFactory(settings=SafeCodeSettings(code_timeout=30, max_memory_mb=256))
 output = await factory(code="import math\nresult = math.sqrt(2)").execute()
-print(CodeResult.from_stdout(output.stdout).value)   # 1.4142135623730951
+print(CodeResult.from_stdout(output.stdout).value)  # 1.4142135623730951
 ```
 
 - The code runs in its own process; only the modules in `PYTHON_ALLOWLIST` can be imported (pandas, numpy, matplotlib, datetime…).
