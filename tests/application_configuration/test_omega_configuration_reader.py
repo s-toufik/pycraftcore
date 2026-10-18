@@ -144,6 +144,7 @@ def test_reads_real_project_config_from_environment():
     assert result.connector[ConnectorType.file]
     assert result.connector[ConnectorType.telemetry]
     assert result.operation
+    assert result.operation.mcp
 
     database_connector = next(iter(result.connector[ConnectorType.database].values()))
     assert database_connector.host == os.environ["DB_HOST"]

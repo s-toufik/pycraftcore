@@ -19,3 +19,4 @@ application_configuration:
   operation:
     dummy_api_1_op: ${operation.dummy_api_1_op}
     dummy_api_2_op: ${operation.dummy_api_2_op}
+    dummy_mcp_1_op: ${operation.dummy_mcp_1_op}

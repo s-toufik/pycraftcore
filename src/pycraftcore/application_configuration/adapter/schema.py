@@ -23,6 +23,7 @@ from pycraftcore.application_configuration.model.connector import (
 from pycraftcore.application_configuration.model.operation import (
     ApiOperation,
     FileOperation,
+    McpOperation,
     OperationRegistry,
 )
 
@@ -41,7 +42,9 @@ _ConnectorSchemaTyping = Annotated[
 ]
 
 _OperationSchemaTyping = Annotated[
-    Annotated[ApiOperation, Tag("api")] | Annotated[FileOperation, Tag("file")],
+    Annotated[ApiOperation, Tag("api")]
+    | Annotated[FileOperation, Tag("file")]
+    | Annotated[McpOperation, Tag("mcp")],
     Discriminator(_kind_tag),
 ]
 
