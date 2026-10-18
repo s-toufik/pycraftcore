@@ -1,0 +1,8 @@
+operation:
+  dummy_mcp_1_op:
+    name: mcp_op
+    type: mcp
+    connector: ${connector.tools}
+    parameters:
+      header:
+        external_header: value_of_external

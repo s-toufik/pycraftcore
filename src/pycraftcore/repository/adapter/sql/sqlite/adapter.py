@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import AsyncIterator, Iterable
+from collections.abc import AsyncGenerator, Iterable
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -13,7 +13,7 @@ class SqliteRepository:
             self._pool.put_nowait(connection)
 
     @asynccontextmanager
-    async def _acquire(self) -> AsyncIterator[Connection]:
+    async def _acquire(self) -> AsyncGenerator[Connection]:
         connection = await self._pool.get()
         try:
             yield connection

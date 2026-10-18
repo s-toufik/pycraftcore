@@ -7,7 +7,7 @@ from pycraftcore.application_configuration.enum.file_operation_action import (
 from pycraftcore.application_configuration.enum.operation_type import OperationType
 from pycraftcore.application_configuration.model.connector import (
     ApiConnector,
-    FileConnector,
+    FileConnector, McpConnector,
 )
 from pycraftcore.http.enum.http_method import HttpMethod
 
@@ -32,12 +32,19 @@ class FileOperation(BaseOperation):
     action: FileOperationAction
     parameters: dict[str, Any]
 
+@dataclass(slots=True)
+class McpOperation(BaseOperation):
+    connector: McpConnector
+    parameters: dict[str, Any]
 
-OperationTyping = FileOperation | ApiOperation
+
+
+OperationTyping = FileOperation | ApiOperation | McpOperation
 
 _OPERATION_CLASS_BY_TYPE: dict[OperationType, type[OperationTyping]] = {
     OperationType.api: ApiOperation,
     OperationType.file: FileOperation,
+    OperationType.mcp: McpOperation,
 }
 
 
@@ -61,6 +68,9 @@ class OperationRegistry:
 
     def file(self, name: str) -> FileOperation:
         return self._get(name, FileOperation)
+
+    def mcp(self, name: str) -> McpOperation:
+        return self._get(name, McpOperation)
 
     def _get[T: OperationTyping](self, name: str, expected: type[T]) -> T:
         try:

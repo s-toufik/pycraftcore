@@ -21,13 +21,13 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.cache/uv
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/pyproject.toml') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/pyproject.toml', '**/uv.lock') }}
           restore-keys: ${{ runner.os }}-deps-
 
       - name: Install dependencies
         run: |
           pip install --upgrade pip uv
-          uv sync
+          uv sync --locked --all-groups --all-extras
 
       - name: Run ruff
         run: |
@@ -48,13 +48,13 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.cache/uv
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/pyproject.toml') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/pyproject.toml', '**/uv.lock') }}
           restore-keys: ${{ runner.os }}-deps-
 
       - name: Install dependencies
         run: |
           pip install --upgrade pip uv
-          uv sync
+          uv sync --locked --all-groups --all-extras
 
       - name: Run ty
         run: |
@@ -75,13 +75,13 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.cache/uv
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/pyproject.toml') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/pyproject.toml', '**/uv.lock') }}
           restore-keys: ${{ runner.os }}-deps-
 
       - name: Install dependencies
         run: |
           pip install --upgrade pip uv
-          uv sync
+          uv sync --locked --all-groups --all-extras
 
       - name: Run tests
         run: |
@@ -94,12 +94,63 @@ jobs:
           name: test-reports
           path: test-reports/
 
+  extras:
+    name: 🧩 EXTRAS (${{ matrix.extra }})
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.14
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { extra: authentication, package: authentication }
+          - { extra: context, package: context }
+          - { extra: logger, package: logger }
+          - { extra: profiler, package: profiler }
+          - { extra: query_language, package: query_language }
+          - { extra: computation_engine, package: computation_engine }
+          - { extra: serializer, package: serializer }
+          - { extra: file_handler, package: file_handler }
+          - { extra: runtime, package: runtime }
+          - { extra: runtime-sandbox, package: runtime }
+          - { extra: circuit_breaker, package: circuit_breaker }
+          - { extra: retry, package: retry }
+          - { extra: http, package: http }
+          - { extra: resilient_http, package: resilient_http }
+          - { extra: application_configuration, package: application_configuration }
+          - { extra: telemetry, package: telemetry }
+          - { extra: repository, package: repository }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the extra alone
+        run: |
+          pip install --upgrade pip uv
+          uv venv
+          uv pip install ".[${{ matrix.extra }}]"
+
+      - name: Import every module of its package
+        run: |
+          .venv/bin/python -I - "${{ matrix.package }}" <<'EOF'
+          import importlib, pkgutil, sys
+          root = importlib.import_module(f"pycraftcore.{sys.argv[1]}")
+          failures = []
+          for module in pkgutil.walk_packages(root.__path__, f"{root.__name__}."):
+              try:
+                  importlib.import_module(module.name)
+              except Exception as error:
+                  failures.append(f"{module.name}: {error!r}")
+          print("\n".join(failures) or f"{root.__name__}: all modules import")
+          sys.exit(bool(failures))
+          EOF
+
   build:
     name: 📦 BUILD
     runs-on: ubuntu-latest
     container:
       image: python:3.14
-    needs: test
+    needs: [test, extras]
     steps:
       - uses: actions/checkout@v4
 
@@ -109,13 +160,13 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.cache/uv
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/pyproject.toml') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/pyproject.toml', '**/uv.lock') }}
           restore-keys: ${{ runner.os }}-deps-
 
       - name: Install dependencies
         run: |
           pip install --upgrade pip uv
-          uv sync
+          uv sync --locked --all-groups --all-extras
 
       - name: Build package
         run: |
