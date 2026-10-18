@@ -8,7 +8,7 @@ clear_dependency_cache:
 	uv cache clear
 
 install:
-	uv sync
+	uv sync --all-groups --all-extras
 
 update_dependency:
 ifdef PACKAGE
@@ -16,10 +16,10 @@ ifdef PACKAGE
 else
 	uv lock --upgrade
 endif
-	uv sync
+	uv sync --all-groups --all-extras
 
 install_dev:
-	uv sync --group dev
+	uv sync --group dev --all-extras
 
 test:
 	uv run pytest --disable-warnings

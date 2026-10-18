@@ -27,11 +27,40 @@ The shared technical foundation of the homelab's Python services: configuration,
 
 ### Install
 
+Requires Python 3.14. Each module's third-party dependencies sit behind an extra of the same name, so a service installs only what it uses:
+
 ```bash
-uv add pycraftcore          # or: pip install pycraftcore
+uv add "pycraftcore[http,repository]"     # or: pip install "pycraftcore[http,repository]"
+uv add "pycraftcore[all]"                 # every module
 ```
 
-Requires Python 3.14. Development builds are published to TestPyPI (`pip install -i https://test.pypi.org/simple/ pycraftcore`); use them for testing only.
+A bare `pycraftcore` installs no third-party packages: only `authentication`, `context` and `logger` work without an extra. For any other module, importing its adapters without the extra fails with `ModuleNotFoundError`.
+
+| Extra | Third-party packages | Also brings in |
+|---|---|---|
+| `authentication`, `context`, `logger` | none | — |
+| `profiler` | pyinstrument | — |
+| `query_language` | sqlglot | — |
+| `computation_engine` | numpy, scipy | — |
+| `serializer` | orjson, msgpack, pydantic | — |
+| `file_handler` | orjson, pyyaml | — |
+| `runtime` | pydantic | — |
+| `runtime-sandbox` | pandas, numpy, matplotlib, python-dateutil | `runtime` |
+| `circuit_breaker` | aiobreaker | `logger` |
+| `retry` | tenacity | `logger` |
+| `http` | aiohttp, httpx, orjson, starlette | `context`, `logger` |
+| `application_configuration` | omegaconf, pydantic, python-dotenv | `http`, `logger`, `authentication` |
+| `telemetry` | opentelemetry (api, sdk, otlp exporter, logging instrumentation) | `application_configuration`, `context` |
+| `resilient_http` | aiohttp, httpx | `circuit_breaker`, `http`, `retry`, `telemetry` |
+| `repository` | aiosqlite, pymongo, psycopg, psycopg-pool, orjson, pydantic | `application_configuration`, `authentication` |
+
+List every module your code imports, even when one extra already brings in another. That way your service stays correct if these links change. For the Python sandbox, use `runtime-sandbox` rather than `runtime`: the sandboxed code runs on your service's interpreter, so the libraries it may import (pandas, numpy, matplotlib, dateutil) must be installed there.
+
+Development builds are published to TestPyPI; use them for testing only. Their dependencies come from PyPI, so add it as an extra index:
+
+```bash
+pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pycraftcore[http]"
+```
 
 ### What's inside
 
@@ -258,12 +287,13 @@ Not every module needs every folder: add a folder when it has something to hold.
 1. Define the protocol in `<module>/port/`.
 2. Implement it in `<module>/adapter/`, with its settings in `configuration/` and the data it exchanges in `schema/`.
 3. Export the public names from the package's `__init__.py`.
-4. Add tests under `tests/<module>/`, and the module to [What's inside](#whats-inside) — with a short example under Using pycraftcore if services will use it directly.
+4. Declare its third-party packages as an extra named after the module in `[project.optional-dependencies]` (pull in other modules with `pycraftcore[<module>]`). Then add it to `all`, to the [Install](#install) table, and to the `extras` matrix in `.github/workflows/cicd.yml`, which installs each extra alone and imports its package.
+5. Add tests under `tests/<module>/`, and the module to [What's inside](#whats-inside) — with a short example under Using pycraftcore if services will use it directly.
 
 ### Tests and checks
 
 ```bash
-make install_dev    # uv sync --group dev
+make install_dev    # uv sync --group dev --all-extras
 make check          # ruff + ty + pytest
 make test
 make lint / make fix / make format / make typecheck
@@ -281,6 +311,6 @@ uv run pre-commit install --hook-type pre-commit --hook-type pre-push
 1. Bump `version` in `pyproject.toml`.
 2. `make build`.
 3. `make publish_dev` to TestPyPI (needs `TEST_PYPI_TOKEN`), try it in a service, then `make publish` to PyPI (needs `RELEASE_PYPI_TOKEN`).
-4. Raise the minimum version in the services that need the change (`pycraftcore>=…` in their `pyproject.toml`), then `uv lock --upgrade-package pycraftcore`.
+4. Raise the minimum version in the services that need the change (`pycraftcore[<extras>]>=…` in their `pyproject.toml`), then `uv lock --upgrade-package pycraftcore`.
 
 To work on pycraftcore and a service at the same time, point the service at your checkout with an editable path dependency in its `pyproject.toml`: `pycraftcore = { path = "../pycraftcore", editable = true }` under `[tool.uv.sources]`.
