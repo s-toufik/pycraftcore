@@ -65,13 +65,42 @@ async def test_execute_requires_result_variable():
 
 
 @pytest.mark.asyncio
-async def test_execute_reports_only_the_exception_message_on_a_code_error():
+async def test_execute_reports_the_traceback_of_the_sandboxed_code_only():
     safe_code = PythonSafeCode(code="def f():\n    return 1 / 0\nresult = f()\n", code_timeout=10)
 
     output = await safe_code.execute()
 
     assert output.stdout == ""
-    assert output.stderr == "ZeroDivisionError: division by zero"
+    assert output.stderr.startswith("Traceback (most recent call last):")
+    assert 'File "<sandbox>", line 3, in <module>' in output.stderr
+    assert 'File "<sandbox>", line 2, in f' in output.stderr
+    assert "return 1 / 0" in output.stderr
+    assert output.stderr.endswith("ZeroDivisionError: division by zero")
+    assert output.stderr.count('File "') == 2
+
+
+@pytest.mark.asyncio
+async def test_execute_reports_the_offending_line_of_a_syntax_error():
+    safe_code = PythonSafeCode(code="for x in range(3)\n    print(x)\n", code_timeout=10)
+
+    output = await safe_code.execute()
+
+    assert 'File "<sandbox>", line 1' in output.stderr
+    assert "for x in range(3)" in output.stderr
+    assert output.stderr.endswith("SyntaxError: expected ':'")
+    assert "Traceback" not in output.stderr
+
+
+@pytest.mark.asyncio
+async def test_execute_keeps_what_the_code_printed_before_failing():
+    safe_code = PythonSafeCode(
+        code="print('loaded 120 rows')\nraise ValueError('bad row')\n", code_timeout=10
+    )
+
+    output = await safe_code.execute()
+
+    assert output.stdout == "loaded 120 rows"
+    assert output.stderr.endswith("ValueError: bad row")
 
 
 @pytest.mark.asyncio

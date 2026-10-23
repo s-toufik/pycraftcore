@@ -1,12 +1,12 @@
 # pycraftcore
 
-The shared technical foundation of the homelab's Python services: configuration, logging, telemetry, resilient HTTP, database repositories, safe SQL and a sandbox for running untrusted Python. Small, swappable building blocks rather than a framework — every module is an interface (a port) plus the implementations behind it (adapters).
+A shared technical foundation for Python services: configuration, logging, telemetry, resilient HTTP, database repositories, safe SQL and a sandbox for running untrusted Python. Small, swappable building blocks rather than a framework — every module is an interface (a port) plus the implementations behind it (adapters).
 
 **[Using pycraftcore](#using-pycraftcore)** — install it and use each module in your service.
 **[Working on pycraftcore](#working-on-pycraftcore)** — how it is organised and how to release it.
 
 ```text
-  your service (agent-orchestrator, agent-toolbox, …)
+  your service (orders-api, billing-worker, …)
         │
         ▼
   ┌─ pycraftcore ─────────────────────────────────────────────────────────────┐
@@ -254,7 +254,16 @@ print(CodeResult.from_stdout(output.stdout).value)  # 1.4142135623730951
 
 - The code runs in its own process; only the modules in `PYTHON_ALLOWLIST` can be imported (pandas, numpy, matplotlib, datetime…).
 - `working_directory` in `SafeCodeSettings` confines file access to one folder.
-- With a `HostBridgeServer`, the code can call functions of your service as if they were local — this is how agent-toolbox lets sandboxed code use its other tools.
+- With a `HostBridgeServer`, the code can call functions of your service as if they were local — for example, a tool service can let sandboxed code call its other tools.
+- When the code fails, `output.stderr` holds its traceback, limited to the code's own lines: each frame with its line number and source line, then the error. Internal frames (the sandbox runner, the libraries it calls) are left out. Whatever the code printed before failing stays in `output.stdout`.
+
+  ```text
+  Traceback (most recent call last):
+    File "<sandbox>", line 3, in <module>
+      value = rows[5]
+              ~~~~^^^
+  IndexError: list index out of range
+  ```
 
 ---
 
