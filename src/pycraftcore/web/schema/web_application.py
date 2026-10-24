@@ -11,7 +11,9 @@ class WebApplication:
     title: str
     lifespan: Callable[[], AbstractAsyncContextManager[None]]
     routes: Callable[[], Sequence[HttpRoute]]
+    version: str = "0.1.0"
     base_path: str = ""
+    docs: bool = False
     errors: Mapping[type[Exception], int] = field(default_factory=dict)
     middleware: Sequence[AsgiMiddleware] = ()
     cors_origins: Sequence[str] = ()
@@ -21,3 +23,11 @@ class WebApplication:
             raise ValueError(
                 f"base_path must start with '/' and must not end with '/': {self.base_path!r}"
             )
+
+    @property
+    def docs_path(self) -> str:
+        return f"{self.base_path}/docs"
+
+    @property
+    def openapi_path(self) -> str:
+        return f"{self.docs_path}/openapi.json"

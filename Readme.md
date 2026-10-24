@@ -98,7 +98,7 @@ A service's configuration is a folder of YAML files, with values taken from envi
 | `root.yml` | The environment, the log level and the list of connectors, operations and servers in use |
 | `<env>/connector/*.yml` | Where things are: APIs, databases, files, MCP servers, telemetry |
 | `<env>/operation/*.yml` | What you do with them; each operation points at a connector |
-| `<env>/server/*.yml` | How the service itself is served: web framework, base path, CORS origins, and your own `parameters` |
+| `<env>/server/*.yml` | How the service itself is served: web framework, base path, API documentation, CORS origins, and your own `parameters` |
 
 ```yaml
 # <env>/connector/api.yml
@@ -136,6 +136,7 @@ server:
     type: asgi
     framework: ${oc.env:WEB_FRAMEWORK,fastapi}
     base_path: ${oc.env:WEB_BASE_PATH,""}
+    docs: ${oc.env:WEB_DOCS,false}
     cors_origins: ["*"]
     parameters:
       max_forecast_days: ${oc.env:MAX_FORECAST_DAYS,7}
@@ -267,9 +268,11 @@ routes = [
 app = web_application_factory(WebFramework.LITESTAR).create(
     WebApplication(
         title="orders-api",
+        version="1.4.0",
         lifespan=boot_and_shutdown,
         routes=lambda: routes,
         base_path="/orders-api",
+        docs=True,
         errors={OutOfStock: 503},
         middleware=(RequestIDMiddleware,),
         cors_origins=("*",),
@@ -280,11 +283,12 @@ app = web_application_factory(WebFramework.LITESTAR).create(
 - **Routes**: a handler is any async function. It receives the validated `body` model when the route has one, and returns a pydantic model (sent with `status_code`, 200 by default), an `HttpResult(body, status_code)` to choose the status per call, or, for `ResponseKind.EVENT_STREAM`, an async iterator of bytes that is streamed as `text/event-stream`.
 - **`routes` is read after `lifespan` has started**, so routes can depend on what the lifespan builds (database pools, clients).
 - **`base_path`** (empty by default) serves every route, the actuator included, under a prefix: above, `POST /orders-api/v1/orders` and `GET /orders-api/actuator/health`, while `/v1/orders` answers 404. Use it when a gateway forwards a path prefix without removing it. It starts with `/` and does not end with one, otherwise `WebApplication` raises `ValueError`.
+- **`docs`** (off by default) serves the API documentation under the base path: Swagger UI at `/orders-api/docs`, the OpenAPI schema at `/orders-api/docs/openapi.json`, titled with `title` and `version`. It is built from each route's `body` and `response` models, with `text/event-stream` for event streams. Off, no framework serves any documentation. Each framework documents its own validation error (FastAPI answers 422, Litestar 400).
 - **`errors`** maps an exception type to a status: the response is `{"detail": "<message>"}`.
 - **`middleware`** takes plain ASGI middleware, such as `RequestIDMiddleware`, and works the same under every framework.
 - **Every framework behaves the same**: same paths, status codes, JSON bodies and stream headers. When a client leaves in the middle of a stream, the stream is closed under every framework, so your generator's `finally` runs.
 - **Actuator**: `ActuatorRouter` adds `/actuator/health`, `/health/liveness`, `/health/readiness` (503 until `is_ready()` is true) and `/info`.
-- **From the configuration**: with a server declared in `<env>/server/*.yml` (see [Configuration](#configuration)), take the framework, title, base path and CORS origins from it: `server = config.server.asgi("orders-api")`, then `web_application_factory(server.framework).create(WebApplication(title=server.name, base_path=server.base_path, cors_origins=server.cors_origins, …))`.
+- **From the configuration**: with a server declared in `<env>/server/*.yml` (see [Configuration](#configuration)), take the framework, title, base path, documentation switch and CORS origins from it: `server = config.server.asgi("orders-api")`, then `web_application_factory(server.framework).create(WebApplication(title=server.name, base_path=server.base_path, docs=server.docs, cors_origins=server.cors_origins, …))`.
 
 Long silences in an event stream make proxies close the connection. `with_heartbeat` sends an SSE comment (`: heartbeat`) whenever the stream has been quiet for a while; clients ignore it.
 
@@ -383,10 +387,17 @@ Not every module needs every folder: add a folder when it has something to hold.
 
 ### Adding a web framework
 
-1. Create `pycraftcore/web_<name>/` with a `<Name>ApplicationFactory` whose `create(application: WebApplication)` returns the framework's ASGI app. Follow the existing adapters: register the routes inside the lifespan under `base_path` with the framework's own router, map `errors` to `{"detail": …}` responses, apply the ASGI middleware and CORS, and close the event stream when the client leaves.
+1. Create `pycraftcore/web_<name>/` with a `<Name>ApplicationFactory` whose `create(application: WebApplication)` returns the framework's ASGI app. Give it the layout the existing adapters share, so the adapters read side by side:
+   - `create` builds the app in one constructor call (the ASGI `middleware`, and documentation at `docs_path` and `openapi_path` only when `docs` is on), and its lifespan enters `application.lifespan()` and then registers `_router(application)`;
+   - `_router` puts every route under `base_path` with the framework's own router, declaring each one with its path, method, status, media type and tags;
+   - `_endpoint` is the function the framework calls, typed with the route's body and response models so the framework validates and documents them;
+   - `_respond` turns the handler's result into the framework's response: an event stream, an `HttpResult` with its status, or the model as it is;
+   - `_cors` and `_error_handlers` / `_error_handler` map CORS and `errors` (`{"detail": …}` responses).
+
+   Close the event stream when the client leaves.
 2. Add the value to `WebFramework` and its case to `web_application_factory` in `web/frameworks.py`.
 3. Add the extra `web_<name> = ["<framework>", "pycraftcore[web]"]`, then add it to `all`, to the [Install](#install) table and to the CI `extras` matrix.
-4. `tests/web/` runs every test once per `WebFramework`, so the new adapter goes through the same contract automatically: routes, base path, errors, CORS, event streams, lifespan, client disconnect and actuator.
+4. `tests/web/` runs every test once per `WebFramework`, so the new adapter goes through the same contract automatically: routes, base path, documentation, errors, CORS, event streams, lifespan, client disconnect and actuator.
 
 ### Tests and checks
 

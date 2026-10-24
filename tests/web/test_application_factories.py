@@ -43,7 +43,7 @@ async def updates(order: Order) -> AsyncIterator[bytes]:
 
 ROUTES = [
     HttpRoute("POST", "/orders", place, body=Order, response=Order),
-    HttpRoute("GET", "/orders/queued", accepted, response=Order),
+    HttpRoute("GET", "/orders/queued", accepted, response=Order, status_code=202),
     HttpRoute("GET", "/orders/unavailable", unavailable, response=Order),
     HttpRoute("POST", "/orders/updates", updates, body=Order, kind=ResponseKind.EVENT_STREAM),
 ]
@@ -128,6 +128,50 @@ async def test_routes_are_served_under_the_base_path_only(framework) -> None:
 
     assert prefixed.status_code == 202
     assert bare.status_code == 404
+
+
+@EVERY_FRAMEWORK
+async def test_no_documentation_is_served_unless_asked(framework) -> None:
+    async with http_client(app_for(framework)) as client:
+        ui = await client.get("/docs")
+        schema = await client.get("/docs/openapi.json")
+        fastapi_default = await client.get("/openapi.json")
+
+    assert (ui.status_code, schema.status_code, fastapi_default.status_code) == (404, 404, 404)
+
+
+@EVERY_FRAMEWORK
+async def test_the_documentation_is_served_under_the_base_path(framework) -> None:
+    app = build_app(framework, ROUTES, base_path="/shop/v1", docs=True)
+    async with http_client(app) as client:
+        ui = await client.get("/shop/v1/docs")
+        schema = await client.get("/shop/v1/docs/openapi.json")
+
+    assert ui.status_code == 200
+    assert ui.headers["content-type"].startswith("text/html")
+    assert schema.status_code == 200
+    assert schema.json()["info"]["title"] == "orders-api"
+    assert set(schema.json()["paths"]) == {
+        "/shop/v1/orders",
+        "/shop/v1/orders/queued",
+        "/shop/v1/orders/unavailable",
+        "/shop/v1/orders/updates",
+    }
+
+
+@EVERY_FRAMEWORK
+async def test_the_documentation_describes_bodies_responses_and_streams(framework) -> None:
+    async with http_client(build_app(framework, ROUTES, docs=True)) as client:
+        paths = (await client.get("/docs/openapi.json")).json()["paths"]
+
+    place_order = paths["/orders"]["post"]
+    queued = paths["/orders/queued"]["get"]
+    updates = paths["/orders/updates"]["post"]
+    order = {"$ref": "#/components/schemas/Order"}
+    assert place_order["requestBody"]["content"]["application/json"]["schema"] == order
+    assert place_order["responses"]["200"]["content"]["application/json"]["schema"] == order
+    assert queued["responses"]["202"]["content"]["application/json"]["schema"] == order
+    assert list(updates["responses"]["200"]["content"]) == ["text/event-stream"]
 
 
 @EVERY_FRAMEWORK

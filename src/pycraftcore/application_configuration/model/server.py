@@ -16,6 +16,7 @@ class BaseServer:
 class AsgiServer(BaseServer):
     framework: WebFramework
     base_path: str = ""
+    docs: bool = False
     cors_origins: list[str] = field(default_factory=list)
     parameters: dict[str, Any] = field(default_factory=dict)
 

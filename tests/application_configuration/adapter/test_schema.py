@@ -92,6 +92,7 @@ def test_a_server_dict_resolves_to_a_typed_asgi_server():
                         "type": "asgi",
                         "framework": "litestar",
                         "base_path": "/orders-api",
+                        "docs": "true",
                         "cors_origins": ["https://shop.example.com"],
                         "parameters": {"max_open_orders": "50"},
                     }
@@ -107,6 +108,7 @@ def test_a_server_dict_resolves_to_a_typed_asgi_server():
     assert isinstance(server, AsgiServer)
     assert server.framework is WebFramework.LITESTAR
     assert server.base_path == "/orders-api"
+    assert server.docs is True
     assert server.cors_origins == ["https://shop.example.com"]
     assert server.parameters == {"max_open_orders": "50"}
 
