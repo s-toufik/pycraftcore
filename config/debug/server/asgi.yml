@@ -1,0 +1,9 @@
+server:
+  dummy_api_server:
+    name: dummy_api_server
+    type: asgi
+    framework: ${oc.env:WEB_FRAMEWORK,fastapi}
+    base_path: ${oc.env:WEB_BASE_PATH,""}
+    cors_origins: ["*"]
+    parameters:
+      max_open_requests: 100

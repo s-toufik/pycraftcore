@@ -26,7 +26,7 @@ class FastApiApplicationFactory:
                         response_model=route.response,
                         tags=list(route.tags) or None,
                     )
-                app.include_router(router)
+                app.include_router(router, prefix=application.base_path)
                 yield
 
         app = FastAPI(title=application.title, lifespan=lifespan)

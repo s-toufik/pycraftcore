@@ -52,7 +52,7 @@ A bare `pycraftcore` installs no third-party packages: only `authentication`, `c
 | `http` | aiohttp, httpx, orjson | `context`, `logger` |
 | `web` | pydantic | — |
 | `web_fastapi`, `web_litestar` | fastapi, litestar (one each) | `web` |
-| `application_configuration` | omegaconf, pydantic, python-dotenv | `http`, `logger`, `authentication` |
+| `application_configuration` | omegaconf, pydantic, python-dotenv | `http`, `logger`, `authentication`, `web` |
 | `telemetry` | opentelemetry (api, sdk, otlp exporter, logging instrumentation) | `application_configuration`, `context` |
 | `resilient_http` | aiohttp, httpx | `circuit_breaker`, `http`, `retry`, `telemetry` |
 | `repository` | aiosqlite, pymongo, psycopg, psycopg-pool, orjson, pydantic | `application_configuration`, `authentication` |
@@ -71,7 +71,7 @@ Each module stands on its own: use the ones you need. The modules today (new one
 
 | Package | What it gives you |
 |---|---|
-| `application_configuration` | YAML configuration (connectors and operations) driven by environment variables, loaded into typed objects |
+| `application_configuration` | YAML configuration (connectors, operations, servers and the log level) driven by environment variables, loaded into typed objects |
 | `authentication` | The auth models a connector can use: none, basic, token |
 | `logger` | One log format for the whole process, with the request id on every line |
 | `context` | `request_id_context`, the request id shared by logs, telemetry and outgoing calls |
@@ -95,9 +95,10 @@ A service's configuration is a folder of YAML files, with values taken from envi
 
 | Path | What it holds |
 |---|---|
-| `root.yml` | The environment and the list of connectors and operations in use |
+| `root.yml` | The environment, the log level and the list of connectors, operations and servers in use |
 | `<env>/connector/*.yml` | Where things are: APIs, databases, files, MCP servers, telemetry |
 | `<env>/operation/*.yml` | What you do with them; each operation points at a connector |
+| `<env>/server/*.yml` | How the service itself is served: web framework, base path, CORS origins, and your own `parameters` |
 
 ```yaml
 # <env>/connector/api.yml
@@ -128,10 +129,27 @@ operation:
 ```
 
 ```yaml
+# <env>/server/asgi.yml
+server:
+  weather-api:
+    name: weather-api
+    type: asgi
+    framework: ${oc.env:WEB_FRAMEWORK,fastapi}
+    base_path: ${oc.env:WEB_BASE_PATH,""}
+    cors_origins: ["*"]
+    parameters:
+      max_forecast_days: ${oc.env:MAX_FORECAST_DAYS,7}
+```
+
+```yaml
 # root.yml
 application_configuration:
   env: ${oc.env:APP_ENV,debug}
   run: async
+  log: ${oc.env:LOG_LEVEL,INFO}
+  server:
+    asgi:
+      weather-api: ${server.weather-api}
   connector:
     api:
       weather: ${connector.weather}
@@ -154,9 +172,15 @@ config = LoadApplicationConfiguration(reader, StandardLogger()).load()
 
 connector = config.connector.api("weather")  # ApiConnector
 operation = config.operation.api("forecast")  # ApiOperation
+server = config.server.asgi("weather-api")  # AsgiServer
 ```
 
-`config.connector` returns typed connectors per kind (`.api()`, `.database()`, `.file()`, `.mcp()`, `.telemetry()`) and `config.operation` typed operations (`.api()`, `.file()`); the `type` field of each entry decides which fields it takes.
+`config.connector` returns typed connectors per kind (`.api()`, `.database()`, `.file()`, `.mcp()`, `.telemetry()`), `config.operation` typed operations (`.api()`, `.file()`) and `config.server` typed servers (`.asgi()`); the `type` field of each entry decides which fields it takes.
+
+- `log` is a `LogLevel` (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`, upper case): pass it to `configure_logging(config.log)`.
+- A server's `framework` is a `WebFramework` (`fastapi` or `litestar`). Reading it from the variable your image is built with keeps the YAML and the installed framework in step.
+- `parameters` is yours: pycraftcore passes it through untouched. `oc.env` always gives strings, so convert the values where you read them.
+- `log` and `server` are required, like `connector` and `operation`. A service that serves no HTTP API writes `server: {}`.
 
 ### Logging and the request id
 
@@ -174,7 +198,7 @@ logger.info("booted")
 ```
 
 - The third column is `request_id_context`. In a web service, `RequestIDMiddleware` (`pycraftcore.http.middleware`) sets it from the `X-Request-ID` header; every line logged during that request shows it, `-` otherwise. Don't write it in your messages.
-- Uvicorn logs use the same format; chatty libraries (httpx, mcp, pymongo…) stay at `WARNING`.
+- Uvicorn's and Granian's worker logs use the same format; chatty libraries (httpx, mcp, pymongo…) stay at `WARNING`.
 - Calling `configure_logging` again replaces the handler rather than adding a second one.
 
 ### Telemetry
@@ -245,6 +269,7 @@ app = web_application_factory(WebFramework.LITESTAR).create(
         title="orders-api",
         lifespan=boot_and_shutdown,
         routes=lambda: routes,
+        base_path="/orders-api",
         errors={OutOfStock: 503},
         middleware=(RequestIDMiddleware,),
         cors_origins=("*",),
@@ -254,10 +279,12 @@ app = web_application_factory(WebFramework.LITESTAR).create(
 
 - **Routes**: a handler is any async function. It receives the validated `body` model when the route has one, and returns a pydantic model (sent with `status_code`, 200 by default), an `HttpResult(body, status_code)` to choose the status per call, or, for `ResponseKind.EVENT_STREAM`, an async iterator of bytes that is streamed as `text/event-stream`.
 - **`routes` is read after `lifespan` has started**, so routes can depend on what the lifespan builds (database pools, clients).
+- **`base_path`** (empty by default) serves every route, the actuator included, under a prefix: above, `POST /orders-api/v1/orders` and `GET /orders-api/actuator/health`, while `/v1/orders` answers 404. Use it when a gateway forwards a path prefix without removing it. It starts with `/` and does not end with one, otherwise `WebApplication` raises `ValueError`.
 - **`errors`** maps an exception type to a status: the response is `{"detail": "<message>"}`.
 - **`middleware`** takes plain ASGI middleware, such as `RequestIDMiddleware`, and works the same under every framework.
 - **Every framework behaves the same**: same paths, status codes, JSON bodies and stream headers. When a client leaves in the middle of a stream, the stream is closed under every framework, so your generator's `finally` runs.
 - **Actuator**: `ActuatorRouter` adds `/actuator/health`, `/health/liveness`, `/health/readiness` (503 until `is_ready()` is true) and `/info`.
+- **From the configuration**: with a server declared in `<env>/server/*.yml` (see [Configuration](#configuration)), take the framework, title, base path and CORS origins from it: `server = config.server.asgi("orders-api")`, then `web_application_factory(server.framework).create(WebApplication(title=server.name, base_path=server.base_path, cors_origins=server.cors_origins, …))`.
 
 Long silences in an event stream make proxies close the connection. `with_heartbeat` sends an SSE comment (`: heartbeat`) whenever the stream has been quiet for a while; clients ignore it.
 
@@ -356,10 +383,10 @@ Not every module needs every folder: add a folder when it has something to hold.
 
 ### Adding a web framework
 
-1. Create `pycraftcore/web_<name>/` with a `<Name>ApplicationFactory` whose `create(application: WebApplication)` returns the framework's ASGI app. Follow the existing adapters: register the routes inside the lifespan, map `errors` to `{"detail": …}` responses, apply the ASGI middleware and CORS, and close the event stream when the client leaves.
+1. Create `pycraftcore/web_<name>/` with a `<Name>ApplicationFactory` whose `create(application: WebApplication)` returns the framework's ASGI app. Follow the existing adapters: register the routes inside the lifespan under `base_path` with the framework's own router, map `errors` to `{"detail": …}` responses, apply the ASGI middleware and CORS, and close the event stream when the client leaves.
 2. Add the value to `WebFramework` and its case to `web_application_factory` in `web/frameworks.py`.
 3. Add the extra `web_<name> = ["<framework>", "pycraftcore[web]"]`, then add it to `all`, to the [Install](#install) table and to the CI `extras` matrix.
-4. `tests/web/` runs every test once per `WebFramework`, so the new adapter goes through the same contract automatically: routes, errors, CORS, event streams, lifespan, client disconnect and actuator.
+4. `tests/web/` runs every test once per `WebFramework`, so the new adapter goes through the same contract automatically: routes, base path, errors, CORS, event streams, lifespan, client disconnect and actuator.
 
 ### Tests and checks
 

@@ -121,6 +121,16 @@ async def test_cors_preflight_is_allowed(framework) -> None:
 
 
 @EVERY_FRAMEWORK
+async def test_routes_are_served_under_the_base_path_only(framework) -> None:
+    async with http_client(build_app(framework, ROUTES, base_path="/shop/v1")) as client:
+        prefixed = await client.get("/shop/v1/orders/queued")
+        bare = await client.get("/orders/queued")
+
+    assert prefixed.status_code == 202
+    assert bare.status_code == 404
+
+
+@EVERY_FRAMEWORK
 async def test_routes_are_read_once_the_lifespan_started(framework) -> None:
     booted: list[HttpRoute] = []
 

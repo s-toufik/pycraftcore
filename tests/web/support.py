@@ -8,7 +8,7 @@ import pytest
 import uvicorn
 from asgi_lifespan import LifespanManager
 
-from pycraftcore.web.asgi import ASGIApp, AsgiMiddleware
+from pycraftcore.web.asgi import ASGIApp, AsgiMiddleware, Receive, Scope, Send
 from pycraftcore.web.enum.web_framework import WebFramework
 from pycraftcore.web.frameworks import web_application_factory
 from pycraftcore.web.schema.http_route import HttpRoute
@@ -27,6 +27,7 @@ def build_app(
     routes: Sequence[HttpRoute],
     *,
     lifespan: Callable[[], AbstractAsyncContextManager[None]] = nothing,
+    base_path: str = "",
     errors: Mapping[type[Exception], int] | None = None,
     middleware: Sequence[AsgiMiddleware] = (),
     cors_origins: Sequence[str] = (),
@@ -35,6 +36,7 @@ def build_app(
         title="orders-api",
         lifespan=lifespan,
         routes=lambda: routes,
+        base_path=base_path,
         errors=errors or {},
         middleware=middleware,
         cors_origins=cors_origins,
@@ -44,10 +46,19 @@ def build_app(
 
 @asynccontextmanager
 async def http_client(app: ASGIApp) -> AsyncGenerator[httpx.AsyncClient]:
-    async with LifespanManager(app) as manager:
+    async with LifespanManager(_state_copied_per_request(app)) as manager:
         transport = httpx.ASGITransport(app=manager.app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             yield client
+
+
+def _state_copied_per_request(app: ASGIApp) -> ASGIApp:
+    async def call(scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "lifespan":
+            scope = {**scope, "state": dict(scope["state"])}
+        await app(scope, receive, send)
+
+    return call
 
 
 def free_port() -> int:

@@ -2,7 +2,7 @@ from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
-from litestar import Litestar, Request, Response
+from litestar import Litestar, Request, Response, Router
 from litestar import route as http_route
 from litestar.config.cors import CORSConfig
 from litestar.handlers import HTTPRouteHandler
@@ -21,8 +21,12 @@ class LitestarApplicationFactory:
         @asynccontextmanager
         async def lifespan(app: Litestar) -> AsyncGenerator[None]:
             async with application.lifespan():
-                for route in application.routes():
-                    app.register(_handler(route))
+                app.register(
+                    Router(
+                        path=application.base_path,
+                        route_handlers=[_handler(route) for route in application.routes()],
+                    )
+                )
                 yield
 
         return Litestar(

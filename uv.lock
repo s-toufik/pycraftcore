@@ -1763,7 +1763,7 @@ wheels = [
 
 [[package]]
 name = "pycraftcore"
-version = "3.0.1"
+version = "4.0.0"
 source = { editable = "." }
 
 [package.optional-dependencies]
@@ -1951,7 +1951,7 @@ requires-dist = [
     { name = "pycraftcore", extras = ["logger"], marker = "extra == 'all'" },
     { name = "pycraftcore", extras = ["logger"], marker = "extra == 'circuit-breaker'" },
     { name = "pycraftcore", extras = ["logger"], marker = "extra == 'retry'" },
-    { name = "pycraftcore", extras = ["logger", "http", "authentication"], marker = "extra == 'application-configuration'" },
+    { name = "pycraftcore", extras = ["logger", "http", "authentication", "web"], marker = "extra == 'application-configuration'" },
     { name = "pycraftcore", extras = ["profiler"], marker = "extra == 'all'" },
     { name = "pycraftcore", extras = ["query-language"], marker = "extra == 'all'" },
     { name = "pycraftcore", extras = ["repository"], marker = "extra == 'all'" },
