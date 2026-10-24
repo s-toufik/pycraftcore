@@ -1,88 +1,106 @@
-from unittest.mock import AsyncMock, MagicMock
+from typing import Any
 
 import pytest
 
-from pycraftcore.http.context.request_context import request_id_context
+from pycraftcore.context.request_id_context import request_id_context
 from pycraftcore.http.middleware.request_id_middleware import RequestIDMiddleware
 
 
-def make_middleware() -> RequestIDMiddleware:
-    return RequestIDMiddleware(app=MagicMock())
+def http_scope(headers: dict[str, str] | None = None) -> dict[str, Any]:
+    return {
+        "type": "http",
+        "headers": [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()],
+    }
 
 
-def make_request(headers: dict[str, str]) -> MagicMock:
-    request = MagicMock()
-    request.headers = headers
-    return request
+async def receive() -> dict[str, Any]:
+    return {"type": "http.request", "body": b"", "more_body": False}
+
+
+class RecordingSend:
+    def __init__(self) -> None:
+        self.messages: list[dict[str, Any]] = []
+
+    async def __call__(self, message: dict[str, Any]) -> None:
+        self.messages.append(message)
+
+    def header(self, name: bytes) -> list[bytes]:
+        start = next(m for m in self.messages if m["type"] == "http.response.start")
+        return [value for key, value in start["headers"] if key == name]
+
+
+def responding_app(seen: dict[str, Any], headers: list[tuple[bytes, bytes]] | None = None):
+    async def app(scope, receive, send) -> None:
+        seen["request_id"] = request_id_context.get()
+        await send({"type": "http.response.start", "status": 200, "headers": headers or []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    return app
 
 
 @pytest.mark.asyncio
 async def test_uses_incoming_request_id_header_when_present():
-    middleware = make_middleware()
-    request = make_request({"X-Request-ID": "incoming-id"})
-    response = MagicMock()
-    response.headers = {}
-    call_next = AsyncMock(return_value=response)
+    seen: dict[str, Any] = {}
+    send = RecordingSend()
 
-    result = await middleware.dispatch(request, call_next)
+    await RequestIDMiddleware(responding_app(seen))(
+        http_scope({"X-Request-ID": "incoming-id"}), receive, send
+    )
 
-    assert result.headers["X-Request-ID"] == "incoming-id"
+    assert send.header(b"x-request-id") == [b"incoming-id"]
+    assert seen["request_id"] == "incoming-id"
     assert request_id_context.get() is None
 
 
 @pytest.mark.asyncio
 async def test_generates_request_id_when_header_missing():
-    middleware = make_middleware()
-    request = make_request({})
-    response = MagicMock()
-    response.headers = {}
-    call_next = AsyncMock(return_value=response)
+    seen: dict[str, Any] = {}
+    send = RecordingSend()
 
-    result = await middleware.dispatch(request, call_next)
+    await RequestIDMiddleware(responding_app(seen))(http_scope(), receive, send)
 
-    assert result.headers["X-Request-ID"]
+    [generated] = send.header(b"x-request-id")
+    assert len(generated) == 32
+    assert seen["request_id"] == generated.decode()
     assert request_id_context.get() is None
 
 
 @pytest.mark.asyncio
-async def test_request_id_context_is_set_during_downstream_call():
-    middleware = make_middleware()
-    request = make_request({"X-Request-ID": "incoming-id"})
-    response = MagicMock()
-    response.headers = {}
+async def test_replaces_a_request_id_header_set_downstream():
+    send = RecordingSend()
+    app = responding_app({}, headers=[(b"X-Request-ID", b"other"), (b"content-type", b"x")])
 
-    async def call_next(_request):
-        assert request_id_context.get() == "incoming-id"
-        return response
+    await RequestIDMiddleware(app)(http_scope({"X-Request-ID": "incoming-id"}), receive, send)
 
-    await middleware.dispatch(request, call_next)
+    assert send.header(b"x-request-id") == [b"incoming-id"]
+    assert send.header(b"content-type") == [b"x"]
 
 
 @pytest.mark.asyncio
 async def test_request_id_context_is_reset_even_when_downstream_raises():
-    middleware = make_middleware()
-    request = make_request({"X-Request-ID": "incoming-id"})
-
-    async def call_next(_request):
+    async def failing_app(scope, receive, send) -> None:
         raise RuntimeError("downstream failure")
 
     with pytest.raises(RuntimeError, match="downstream failure"):
-        await middleware.dispatch(request, call_next)
+        await RequestIDMiddleware(failing_app)(
+            http_scope({"X-Request-ID": "incoming-id"}), receive, RecordingSend()
+        )
 
     assert request_id_context.get() is None
 
 
 @pytest.mark.asyncio
-async def test_calls_downstream_handler_with_the_request():
-    middleware = make_middleware()
-    request = make_request({})
-    response = MagicMock()
-    response.headers = {}
-    call_next = AsyncMock(return_value=response)
+async def test_non_http_scopes_pass_through_untouched():
+    seen: dict[str, Any] = {}
 
-    await middleware.dispatch(request, call_next)
+    async def lifespan_app(scope, receive, send) -> None:
+        seen["scope"] = scope
+        seen["request_id"] = request_id_context.get()
 
-    call_next.assert_awaited_once_with(request)
+    scope = {"type": "lifespan"}
+    await RequestIDMiddleware(lifespan_app)(scope, receive, RecordingSend())
+
+    assert seen == {"scope": scope, "request_id": None}
 
 
 def test_generate_request_id_returns_a_hex_uuid():

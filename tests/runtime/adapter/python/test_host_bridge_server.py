@@ -120,4 +120,7 @@ async def test_uncaught_tool_error_is_reported_on_stderr():
             code="echo(fail=True)", code_timeout=10, host_bridge_config=server.config
         ).execute()
 
-    assert output.stderr == "ToolError: File not found."
+    assert 'File "<sandbox>", line 1, in <module>' in output.stderr
+    assert "echo(fail=True)" in output.stderr
+    assert output.stderr.endswith("ToolError: File not found.")
+    assert output.stderr.count('File "') == 1

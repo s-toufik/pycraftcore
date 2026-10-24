@@ -1,6 +1,11 @@
 application_configuration:
   env: ${oc.env:APP_ENV,debug}
   run: async
+  log: ${oc.env:LOG_LEVEL,INFO}
+
+  server:
+    asgi:
+      dummy_api_server: ${server.dummy_api_server}
 
   connector:
     api:

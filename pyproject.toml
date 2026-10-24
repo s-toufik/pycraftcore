@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pycraftcore"
-version = "2.1.0"
+version = "4.0.0"
 authors = [
     { name = "Toufik Saouchi", email = "toufik.saouchi@gmail.com" },
 ]
@@ -37,13 +37,16 @@ computation_engine = ["numpy", "scipy"]
 serializer = ["orjson", "msgpack", "pydantic>=2"]
 file_handler = ["orjson", "pyyaml"]
 runtime = ["pydantic>=2"]
+web = ["pydantic>=2"]
 
 # Dependent dependencies
 circuit_breaker = ["aiobreaker", "pycraftcore[logger]"]
 retry = ["tenacity", "pycraftcore[logger]"]
-http = ["aiohttp", "httpx", "orjson", "starlette", "pycraftcore[context, logger]"]
+http = ["aiohttp", "httpx", "orjson", "pycraftcore[context, logger]"]
+web_fastapi = ["fastapi", "pycraftcore[web]"]
+web_litestar = ["litestar", "multidict<7.2", "pycraftcore[web]"]
 resilient_http = ["aiohttp", "httpx", "pycraftcore[circuit_breaker, http, logger, retry, telemetry]"]
-application_configuration = ["omegaconf", "pydantic>=2", "python-dotenv", "pycraftcore[logger, http, authentication]"]
+application_configuration = ["omegaconf", "pydantic>=2", "python-dotenv", "pycraftcore[logger, http, authentication, web]"]
 telemetry = ["opentelemetry-api", "opentelemetry-sdk", "opentelemetry-exporter-otlp", "opentelemetry-instrumentation-logging", "pycraftcore[application_configuration, context]"]
 repository = ["aiosqlite", "pymongo", "psycopg[binary]", "psycopg-pool", "orjson", "pydantic>=2", "pycraftcore[application_configuration, authentication]"]
 runtime-sandbox = ["pandas", "numpy", "matplotlib", "python-dateutil", "pycraftcore[runtime]"]
@@ -66,7 +69,9 @@ all = [
     "pycraftcore[runtime-sandbox]",
     "pycraftcore[serializer]",
     "pycraftcore[telemetry]",
-
+    "pycraftcore[web]",
+    "pycraftcore[web_fastapi]",
+    "pycraftcore[web_litestar]",
 ]
 
 [dependency-groups]
@@ -75,6 +80,8 @@ dev = [
     "hypothesis",
     "pytest-asyncio",
     "pytest-cov",
+    "uvicorn",
+    "asgi-lifespan",
     "ruff",
     "ty",
     "scipy-stubs",

@@ -1,4 +1,4 @@
-from pycraftcore.http.context.request_context import request_id_context
+from pycraftcore.context.request_id_context import request_id_context
 
 
 def test_defaults_to_none():

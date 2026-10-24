@@ -16,9 +16,12 @@ from pycraftcore.application_configuration.enum.run_type_application import (
 from pycraftcore.application_configuration.enum.run_type_environment import (
     RunTypeEnvironment,
 )
+from pycraftcore.application_configuration.enum.server_type import ServerType
 from pycraftcore.application_configuration.model.configuration import (
     ApplicationConfiguration,
 )
+from pycraftcore.logger.enum.log_level import LogLevel
+from pycraftcore.web.enum.web_framework import WebFramework
 
 load_dotenv()
 
@@ -94,6 +97,8 @@ def test_read_validation_schema():
             "application_configuration": {
                 "env": "debug",
                 "run": "async",
+                "log": "INFO",
+                "server": {},
                 "connector": {},
                 "operation": {},
             }
@@ -117,7 +122,13 @@ def test_omega_read_merges_real_yml_files_from_disk(tmp_path):
     (env_dir / "operation").mkdir(parents=True)
     (env_dir / "connector" / "db.yml").write_text("connector:\n  database:\n    users: {}\n")
     (tmp_path / "root.yml").write_text(
-        "application_configuration:\n  env: debug\n  run: async\n  connector: {}\n  operation: {}\n"
+        "application_configuration:\n"
+        "  env: debug\n"
+        "  run: async\n"
+        "  log: INFO\n"
+        "  server: {}\n"
+        "  connector: {}\n"
+        "  operation: {}\n"
     )
 
     reader = OmegaConfigurationReader(RunTypeEnvironment.debug, tmp_path)
@@ -126,6 +137,36 @@ def test_omega_read_merges_real_yml_files_from_disk(tmp_path):
 
     assert isinstance(result, ApplicationConfiguration)
     assert result.env == RunTypeEnvironment.debug
+
+
+def test_server_files_are_merged_and_read_as_asgi_servers(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORDERS_API_BASE_PATH", "/orders-api")
+    (tmp_path / "debug" / "server").mkdir(parents=True)
+    (tmp_path / "debug" / "server" / "asgi.yml").write_text(
+        "server:\n"
+        "  orders-api:\n"
+        "    name: orders-api\n"
+        "    type: asgi\n"
+        "    framework: fastapi\n"
+        '    base_path: ${oc.env:ORDERS_API_BASE_PATH,""}\n'
+    )
+    (tmp_path / "root.yml").write_text(
+        "application_configuration:\n"
+        "  env: debug\n"
+        "  run: async\n"
+        "  log: WARNING\n"
+        "  server:\n"
+        "    asgi:\n"
+        "      orders-api: ${server.orders-api}\n"
+        "  connector: {}\n"
+        "  operation: {}\n"
+    )
+
+    result = OmegaConfigurationReader(RunTypeEnvironment.debug, tmp_path).read()
+
+    assert result.log is LogLevel.WARNING
+    assert result.server.asgi("orders-api").base_path == "/orders-api"
+    assert result.server.asgi("orders-api").framework is WebFramework.FASTAPI
 
 
 @pytest.mark.skipif(
@@ -141,6 +182,7 @@ def test_reads_real_project_config_from_environment():
     assert isinstance(result, ApplicationConfiguration)
     assert result.env == env
     assert result.run == RunTypeApplication.asynchronous
+    assert result.server[ServerType.asgi]
     assert result.connector[ConnectorType.file]
     assert result.connector[ConnectorType.telemetry]
     assert result.operation

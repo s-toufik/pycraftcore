@@ -6,6 +6,7 @@ import pytest
 from pycraftcore.context.request_id_context import request_id_context
 from pycraftcore.logger.configuration import (
     NO_REQUEST_ID,
+    SERVER_LOGGERS,
     RequestIdFilter,
     _ConsoleHandler,
     configure_logging,
@@ -16,13 +17,14 @@ from pycraftcore.logger.configuration import (
 def restore_root_logger() -> Iterator[None]:
     root = logging.getLogger()
     handlers, level = root.handlers[:], root.level
-    uvicorn = logging.getLogger("uvicorn.access")
-    uvicorn_handlers, uvicorn_propagate = uvicorn.handlers[:], uvicorn.propagate
+    servers = [logging.getLogger(name) for name in SERVER_LOGGERS]
+    saved = [(server.handlers[:], server.propagate) for server in servers]
     yield
     root.handlers[:] = handlers
     root.setLevel(level)
-    uvicorn.handlers[:] = uvicorn_handlers
-    uvicorn.propagate = uvicorn_propagate
+    for server, (server_handlers, propagate) in zip(servers, saved, strict=True):
+        server.handlers[:] = server_handlers
+        server.propagate = propagate
 
 
 def _console_handlers() -> list[logging.Handler]:
@@ -56,7 +58,6 @@ def test_a_line_outside_a_request_shows_a_placeholder() -> None:
 
 
 def test_the_placeholder_is_not_written_on_the_record() -> None:
-    # The OTLP handler exports extra record fields: it must not receive a fake request id.
     record = logging.LogRecord("app", logging.INFO, "/src/app.py", 1, "booted", None, None)
 
     RequestIdFilter().filter(record)
@@ -78,11 +79,12 @@ def test_noisy_libraries_stay_at_warning_even_in_debug() -> None:
     assert logging.getLogger("httpx").level == logging.WARNING
 
 
-def test_uvicorn_lines_go_through_the_shared_format() -> None:
-    logging.getLogger("uvicorn.access").addHandler(logging.StreamHandler())
-    logging.getLogger("uvicorn.access").propagate = False
+@pytest.mark.parametrize("name", ["uvicorn.access", "_granian", "granian.access"])
+def test_server_lines_go_through_the_shared_format(name) -> None:
+    logging.getLogger(name).addHandler(logging.StreamHandler())
+    logging.getLogger(name).propagate = False
 
     configure_logging()
 
-    assert logging.getLogger("uvicorn.access").handlers == []
-    assert logging.getLogger("uvicorn.access").propagate is True
+    assert logging.getLogger(name).handlers == []
+    assert logging.getLogger(name).propagate is True

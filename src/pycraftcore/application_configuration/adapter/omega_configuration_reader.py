@@ -20,6 +20,7 @@ class OmegaConfigurationReader:
     ROOT_CONFIG_FILE_NAME = "root"
     CONNECTOR_CONFIG_FILE_NAME = "connector"
     OPERATION_CONFIG_FILE_NAME = "operation"
+    SERVER_CONFIG_FILE_NAME = "server"
 
     def __init__(self, env: RunTypeEnvironment, config_directory: Path) -> None:
         self._env = env
@@ -44,6 +45,7 @@ class OmegaConfigurationReader:
             OmegaConf.merge(
                 *self._load_yml_dir(config_dir_env / self.CONNECTOR_CONFIG_FILE_NAME),
                 *self._load_yml_dir(config_dir_env / self.OPERATION_CONFIG_FILE_NAME),
+                *self._load_yml_dir(config_dir_env / self.SERVER_CONFIG_FILE_NAME),
                 OmegaConf.load(config_root),
             ),
         )

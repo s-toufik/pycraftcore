@@ -178,9 +178,11 @@ _PYTHON_RUNNER_TEMPLATE: Template = Template(
     textwrap.dedent("""\
 import builtins
 import json
+import linecache
 import os
 import socket
 import sys
+import traceback
 
 if sys.platform == "linux":
     import resource
@@ -333,10 +335,23 @@ _globals = {
     **_BRIDGE_PROXIES
 }
 
+_SANDBOX_FILE = "<sandbox>"
+_SOURCE = $code
+linecache.cache[_SANDBOX_FILE] = (len(_SOURCE), None, _SOURCE.splitlines(keepends=True), _SANDBOX_FILE)
+
+
+def _sandbox_traceback(exc):
+    report = traceback.TracebackException.from_exception(exc)
+    report.stack = traceback.StackSummary.from_list(
+        [frame for frame in report.stack if frame.filename == _SANDBOX_FILE]
+    )
+    return "".join(report.format(chain=False))
+
+
 try:
-    exec(compile($code, "<sandbox>", "exec"), _globals)
+    exec(compile(_SOURCE, _SANDBOX_FILE, "exec"), _globals)
 except Exception as exc:
-    print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
+    print(_sandbox_traceback(exc), end="", file=sys.stderr)
     sys.exit(1)
 
 if "result" not in _globals:

@@ -10,7 +10,6 @@ LOG_FORMAT: str = (
 DATE_FORMAT: str = "%Y-%m-%d %H:%M:%S"
 NO_REQUEST_ID: str = "-"
 
-# Libraries that log every request or query: kept at WARNING so DEBUG stays readable.
 QUIET_LOGGERS: tuple[str, ...] = (
     "aiosqlite",
     "anthropic",
@@ -25,8 +24,13 @@ QUIET_LOGGERS: tuple[str, ...] = (
     "urllib3",
 )
 
-# Uvicorn installs its own handlers: routed to the root so its lines share the format.
-UVICORN_LOGGERS: tuple[str, ...] = ("uvicorn", "uvicorn.error", "uvicorn.access")
+SERVER_LOGGERS: tuple[str, ...] = (
+    "uvicorn",
+    "uvicorn.error",
+    "uvicorn.access",
+    "_granian",
+    "granian.access",
+)
 
 
 class RequestIdFilter(logging.Filter):
@@ -37,8 +41,7 @@ class RequestIdFilter(logging.Filter):
         return True
 
 
-class _ConsoleHandler(logging.StreamHandler):
-    """Marks the handler this module installs, so a second call replaces it."""
+class _ConsoleHandler(logging.StreamHandler): ...
 
 
 def configure_logging(level: str | int = logging.INFO) -> None:
@@ -58,7 +61,7 @@ def configure_logging(level: str | int = logging.INFO) -> None:
     for name in QUIET_LOGGERS:
         logging.getLogger(name).setLevel(quiet_level)
 
-    for name in UVICORN_LOGGERS:
-        uvicorn_logger = logging.getLogger(name)
-        uvicorn_logger.handlers.clear()
-        uvicorn_logger.propagate = True
+    for name in SERVER_LOGGERS:
+        server_logger = logging.getLogger(name)
+        server_logger.handlers.clear()
+        server_logger.propagate = True
