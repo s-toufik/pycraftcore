@@ -9,10 +9,11 @@ def orders_api() -> AsgiServer:
     return AsgiServer(name="orders-api", type=ServerType.asgi, framework=WebFramework.LITESTAR)
 
 
-def test_an_asgi_server_has_no_base_path_no_cors_and_no_parameters_by_default():
+def test_an_asgi_server_has_no_base_path_no_docs_no_cors_and_no_parameters_by_default():
     server = orders_api()
 
     assert server.base_path == ""
+    assert server.docs is False
     assert server.cors_origins == []
     assert server.parameters == {}
 
