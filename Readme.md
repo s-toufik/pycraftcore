@@ -51,7 +51,7 @@ A bare `pycraftcore` installs no third-party packages: only `authentication`, `c
 | `retry` | tenacity | `logger` |
 | `http` | aiohttp, httpx, orjson | `context`, `logger` |
 | `web` | pydantic | — |
-| `web_fastapi`, `web_litestar`, `web_blacksheep` | fastapi, litestar, blacksheep (one each) | `web` |
+| `web_fastapi`, `web_litestar` | fastapi, litestar (one each) | `web` |
 | `application_configuration` | omegaconf, pydantic, python-dotenv | `http`, `logger`, `authentication` |
 | `telemetry` | opentelemetry (api, sdk, otlp exporter, logging instrumentation) | `application_configuration`, `context` |
 | `resilient_http` | aiohttp, httpx | `circuit_breaker`, `http`, `retry`, `telemetry` |
@@ -78,7 +78,7 @@ Each module stands on its own: use the ones you need. The modules today (new one
 | `telemetry` | OpenTelemetry traces, metrics and logs, exported to an OTLP collector (or nothing) |
 | `http` | Async HTTP clients (httpx, aiohttp), retry policies, and `RequestIDMiddleware` (plain ASGI, works under any framework) |
 | `web` | Describe an HTTP API once (routes, errors, middleware, CORS) and serve it with the framework you pick; server-sent events with heartbeats; health and info endpoints |
-| `web_fastapi`, `web_litestar`, `web_blacksheep` | The framework adapters behind `web`: install only the one you serve with |
+| `web_fastapi`, `web_litestar` | The framework adapters behind `web`: install only the one you serve with |
 | `resilient_http` | An HTTP transport with retries and a circuit breaker built in |
 | `retry`, `circuit_breaker` | The two policies on their own, for any async call |
 | `repository` | Async repositories built from a database connector — today SQLite (pooled), PostgreSQL and MongoDB |
@@ -223,7 +223,7 @@ client = ResilientTransportFactory(
 
 ### Serving an HTTP API
 
-Describe the API once, as plain data, and pick the framework when you build it. Your service never imports FastAPI, Litestar or BlackSheep: only the adapter for the framework you choose is imported, and only its extra needs to be installed.
+Describe the API once, as plain data, and pick the framework when you build it. Your service never imports FastAPI or Litestar: only the adapter for the framework you choose is imported, and only its extra needs to be installed.
 
 ```python
 from pycraftcore.http.middleware import RequestIDMiddleware

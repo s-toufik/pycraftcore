@@ -124,7 +124,6 @@ jobs:
           - { extra: web, package: web }
           - { extra: web_fastapi, package: web_fastapi }
           - { extra: web_litestar, package: web_litestar }
-          - { extra: web_blacksheep, package: web_blacksheep }
     steps:
       - uses: actions/checkout@v4
 

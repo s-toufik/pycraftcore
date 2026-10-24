@@ -12,7 +12,3 @@ def web_application_factory(framework: WebFramework) -> WebApplicationFactory:
             from pycraftcore.web_litestar import LitestarApplicationFactory
 
             return LitestarApplicationFactory()
-        case WebFramework.BLACKSHEEP:
-            from pycraftcore.web_blacksheep import BlackSheepApplicationFactory
-
-            return BlackSheepApplicationFactory()
