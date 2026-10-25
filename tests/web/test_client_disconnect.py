@@ -4,8 +4,9 @@ from collections.abc import AsyncIterator
 import httpx
 import pytest
 
-from pycraftcore.web.schema.http_route import HttpRoute, ResponseKind
-from tests.web.support import EVERY_FRAMEWORK, build_app, running_server
+from pycraftcore.web.schema import ApiSettings
+from tests.web.apps import EVERY_TOOLKIT
+from tests.web.support import running_server
 
 pytestmark = pytest.mark.asyncio
 
@@ -15,10 +16,7 @@ class SilentFeed:
         self.started = asyncio.Event()
         self.closed = asyncio.Event()
 
-    async def open(self) -> AsyncIterator[bytes]:
-        return self._frames()
-
-    async def _frames(self) -> AsyncIterator[bytes]:
+    async def frames(self) -> AsyncIterator[bytes]:
         self.started.set()
         try:
             yield b"event: opened\ndata: 1\n\n"
@@ -28,12 +26,10 @@ class SilentFeed:
             self.closed.set()
 
 
-@EVERY_FRAMEWORK
-async def test_a_client_leaving_closes_the_stream_it_was_reading(framework) -> None:
+@EVERY_TOOLKIT
+async def test_a_client_leaving_closes_the_stream_it_was_reading(orders_app) -> None:
     feed = SilentFeed()
-    app = build_app(
-        framework, [HttpRoute("GET", "/feed", feed.open, kind=ResponseKind.EVENT_STREAM)]
-    )
+    app = orders_app(ApiSettings(title="orders-api"), feed=feed.frames)
 
     async with running_server(app) as base_url:
         async with httpx.AsyncClient(base_url=base_url) as client:

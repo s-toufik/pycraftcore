@@ -21,7 +21,6 @@ from pycraftcore.application_configuration.model.configuration import (
     ApplicationConfiguration,
 )
 from pycraftcore.logger.enum.log_level import LogLevel
-from pycraftcore.web.enum.web_framework import WebFramework
 
 load_dotenv()
 
@@ -147,7 +146,7 @@ def test_server_files_are_merged_and_read_as_asgi_servers(tmp_path, monkeypatch)
         "  orders-api:\n"
         "    name: orders-api\n"
         "    type: asgi\n"
-        "    framework: fastapi\n"
+        "    docs: true\n"
         '    base_path: ${oc.env:ORDERS_API_BASE_PATH,""}\n'
     )
     (tmp_path / "root.yml").write_text(
@@ -166,7 +165,7 @@ def test_server_files_are_merged_and_read_as_asgi_servers(tmp_path, monkeypatch)
 
     assert result.log is LogLevel.WARNING
     assert result.server.asgi("orders-api").base_path == "/orders-api"
-    assert result.server.asgi("orders-api").framework is WebFramework.FASTAPI
+    assert result.server.asgi("orders-api").docs is True
 
 
 @pytest.mark.skipif(

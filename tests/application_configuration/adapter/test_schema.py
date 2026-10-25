@@ -19,7 +19,6 @@ from pycraftcore.application_configuration.enum.server_type import ServerType
 from pycraftcore.application_configuration.model.connector import McpConnector
 from pycraftcore.application_configuration.model.server import AsgiServer
 from pycraftcore.logger.enum.log_level import LogLevel
-from pycraftcore.web.enum.web_framework import WebFramework
 
 
 REQUIRED = {
@@ -90,7 +89,6 @@ def test_a_server_dict_resolves_to_a_typed_asgi_server():
                     "orders-api": {
                         "name": "orders-api",
                         "type": "asgi",
-                        "framework": "litestar",
                         "base_path": "/orders-api",
                         "docs": "true",
                         "cors_origins": ["https://shop.example.com"],
@@ -106,7 +104,6 @@ def test_a_server_dict_resolves_to_a_typed_asgi_server():
 
     assert result.log is LogLevel.DEBUG
     assert isinstance(server, AsgiServer)
-    assert server.framework is WebFramework.LITESTAR
     assert server.base_path == "/orders-api"
     assert server.docs is True
     assert server.cors_origins == ["https://shop.example.com"]
@@ -117,9 +114,9 @@ def test_a_server_dict_resolves_to_a_typed_asgi_server():
     ("field", "value"),
     [
         ("log", "VERBOSE"),
-        ("server", {"asgi": {"x": {"name": "x", "type": "asgi", "framework": "flask"}}}),
+        ("server", {"asgi": {"x": {"name": "x", "type": "asgi", "docs": "maybe"}}}),
     ],
 )
-def test_an_unknown_log_level_or_framework_is_rejected(field, value):
+def test_an_unknown_log_level_or_an_invalid_server_is_rejected(field, value):
     with pytest.raises(ValidationError):
         ApplicationConfigurationSchema(**REQUIRED | {field: value})
