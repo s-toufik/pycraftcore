@@ -1,4 +1,3 @@
-from pycraftcore.web.schema.http_route import HttpMethod, HttpResult, HttpRoute, ResponseKind
-from pycraftcore.web.schema.web_application import WebApplication
+from pycraftcore.web.schema.api_settings import DOCS_PATH, OPENAPI_PATH, ApiSettings
 
-__all__ = ["HttpMethod", "HttpResult", "HttpRoute", "ResponseKind", "WebApplication"]
+__all__ = ["DOCS_PATH", "OPENAPI_PATH", "ApiSettings"]

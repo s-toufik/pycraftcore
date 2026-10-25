@@ -2,11 +2,10 @@ import pytest
 
 from pycraftcore.application_configuration.enum.server_type import ServerType
 from pycraftcore.application_configuration.model.server import AsgiServer, ServerRegistry
-from pycraftcore.web.enum.web_framework import WebFramework
 
 
 def orders_api() -> AsgiServer:
-    return AsgiServer(name="orders-api", type=ServerType.asgi, framework=WebFramework.LITESTAR)
+    return AsgiServer(name="orders-api", type=ServerType.asgi)
 
 
 def test_an_asgi_server_has_no_base_path_no_docs_no_cors_and_no_parameters_by_default():

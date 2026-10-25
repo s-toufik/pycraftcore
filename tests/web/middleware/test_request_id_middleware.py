@@ -3,7 +3,7 @@ from typing import Any
 import pytest
 
 from pycraftcore.context.request_id_context import request_id_context
-from pycraftcore.http.middleware.request_id_middleware import RequestIDMiddleware
+from pycraftcore.web.middleware.request_id_middleware import RequestIDMiddleware
 
 
 def http_scope(headers: dict[str, str] | None = None) -> dict[str, Any]:
