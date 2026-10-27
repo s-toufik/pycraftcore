@@ -5,7 +5,7 @@ from contextlib import aclosing
 import pytest
 
 from pycraftcore.web.sse import SSE_HEARTBEAT, with_heartbeat
-from pycraftcore.web.streaming import IDLE, with_idle_ticks
+from pycraftcore.web.streaming import IDLE, cancel_on_disconnect, with_idle_ticks
 
 pytestmark = pytest.mark.asyncio
 
@@ -76,3 +76,65 @@ async def test_a_heartbeat_fills_the_silences_of_an_event_stream() -> None:
 
     assert sent[-1] == b"event: done\n\n"
     assert set(sent[:-1]) == {SSE_HEARTBEAT}
+
+
+class Client:
+    def __init__(self) -> None:
+        self._left = asyncio.Event()
+
+    def leave(self) -> None:
+        self._left.set()
+
+    async def disconnected(self) -> None:
+        await self._left.wait()
+
+
+def cancellations() -> int:
+    task = asyncio.current_task()
+    assert task is not None
+    return task.cancelling()
+
+
+async def test_while_the_client_stays_every_item_passes_and_the_source_is_closed() -> None:
+    source = Source("a", "b")
+
+    assert await collect(cancel_on_disconnect(source(), Client().disconnected)) == ["a", "b"]
+    assert source.closed
+
+
+async def test_a_client_leaving_while_the_source_waits_ends_the_stream_at_once() -> None:
+    source = Source("a", "b", pause=10)
+    client = Client()
+    asyncio.get_running_loop().call_later(0.05, client.leave)
+
+    items = await asyncio.wait_for(collect(cancel_on_disconnect(source(), client.disconnected)), 2)
+
+    assert items == []
+    assert source.closed
+    assert cancellations() == 0
+
+
+async def test_a_client_leaving_between_two_items_ends_the_stream_before_the_next() -> None:
+    source = Source("a", "b")
+    client = Client()
+
+    async with aclosing(cancel_on_disconnect(source(), client.disconnected)) as stream:
+        assert await anext(stream) == "a"
+        client.leave()
+        await asyncio.sleep(0)
+        assert await anext(stream, None) is None
+
+    assert source.closed
+    assert cancellations() == 0
+
+
+async def test_a_cancellation_from_elsewhere_still_cancels_the_reader() -> None:
+    source = Source("a", pause=10)
+    reader = asyncio.create_task(collect(cancel_on_disconnect(source(), Client().disconnected)))
+    await asyncio.sleep(0.01)
+
+    reader.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await reader
+    assert source.closed

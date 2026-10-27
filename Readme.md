@@ -308,9 +308,11 @@ What each framework asks of your routes:
 
 - **Litestar**: declare the body as `data: JSONBody[Model]`, and give event-stream routes `media_type=EVENT_STREAM_MEDIA_TYPE` so the documentation shows it. A POST answers 201 unless you set `status_code`.
 - **FastAPI**: give event-stream routes `response_class=EventStreamResponse` (from `pycraftcore.web_fastapi`) so the documentation shows `text/event-stream`.
-- **BlackSheep**: document statuses and media types with BlackSheep's `@docs(...)` from `openapi_handler(api)`, and pass that handler to `create_app(openapi=…)`. `event_stream(frames, request)` also takes the request: BlackSheep does not notice a client leaving an idle stream, so the stream checks `request.is_disconnected()` every second. `/docs` redirects to `/docs/`. `create_app` returns the app wrapped in `RequestIDMiddleware`, so configure the application through `create_app`'s arguments.
+- **BlackSheep**: document statuses and media types with BlackSheep's `@docs(...)` from `openapi_handler(api)`, and pass that handler to `create_app(openapi=…)`. `event_stream(frames, request)` also takes the request: BlackSheep does not stop a stream when its client leaves, so the stream waits for the client's disconnect and stops itself then, at no cost per frame. `/docs` redirects to `/docs/`. `create_app` returns the app wrapped in `RequestIDMiddleware`, so configure the application through `create_app`'s arguments.
 
 Long silences in an event stream make proxies close the connection. `with_heartbeat` (`pycraftcore.web.sse`) sends an SSE comment (`: heartbeat`) whenever the stream has been quiet for `every` seconds; clients ignore it. It is built on `with_idle_ticks(source, every)` (`pycraftcore.web.streaming`), which yields the source's items plus an `IDLE` marker each time nothing arrived in time. Closing it closes the source, even while it is waiting.
+
+For a framework that does not stop a stream when its client leaves, `cancel_on_disconnect(source, disconnected)` (`pycraftcore.web.streaming`) passes the source's items through until `disconnected()` returns, then ends the stream and closes the source, even while it is waiting for its next item. One watcher task per stream does the waiting, so frames pass through without any extra work. BlackSheep's `event_stream` is built on it.
 
 ### Databases
 

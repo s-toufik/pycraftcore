@@ -1,32 +1,40 @@
 from collections.abc import AsyncGenerator, AsyncIterator, Callable
 from contextlib import aclosing
-from typing import Final
+from functools import partial
 
 from blacksheep import Request, Response, StreamedContent
+from blacksheep.contents import ASGIContent
 
+from pycraftcore.web.asgi import Receive
 from pycraftcore.web.sse import EVENT_STREAM_HEADERS, EVENT_STREAM_MEDIA_TYPE
-from pycraftcore.web.streaming import Idle, with_idle_ticks
-
-DISCONNECT_CHECK_SECONDS: Final[float] = 1.0
+from pycraftcore.web.streaming import cancel_on_disconnect
 
 
 def event_stream(frames: AsyncIterator[bytes], request: Request) -> Response:
+    content = request.content
+    if not isinstance(content, ASGIContent):
+        raise TypeError("event_stream needs the request of an ASGI call")
     return Response(
         200,
         [(name.encode(), value.encode()) for name, value in EVENT_STREAM_HEADERS.items()],
-        StreamedContent(EVENT_STREAM_MEDIA_TYPE.encode(), _until_disconnected(frames, request)),
+        StreamedContent(
+            EVENT_STREAM_MEDIA_TYPE.encode(), _until_disconnected(frames, content.receive)
+        ),
     )
 
 
 def _until_disconnected(
-    frames: AsyncIterator[bytes], request: Request
+    frames: AsyncIterator[bytes], receive: Receive
 ) -> Callable[[], AsyncGenerator[bytes]]:
     async def stream() -> AsyncGenerator[bytes]:
-        async with aclosing(with_idle_ticks(frames, DISCONNECT_CHECK_SECONDS)) as ticks:
-            async for frame in ticks:
-                if await request.is_disconnected():
-                    return
-                if not isinstance(frame, Idle):
-                    yield frame
+        async with aclosing(cancel_on_disconnect(frames, partial(_client_left, receive))) as kept:
+            async for frame in kept:
+                yield frame
 
     return stream
+
+
+async def _client_left(receive: Receive) -> None:
+    message = await receive()
+    while message["type"] != "http.disconnect":
+        message = await receive()

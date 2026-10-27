@@ -26,6 +26,17 @@ class SilentFeed:
             self.closed.set()
 
 
+class BusyFeed(SilentFeed):
+    async def frames(self) -> AsyncIterator[bytes]:
+        self.started.set()
+        try:
+            for index in range(100_000):
+                yield f"event: tick\ndata: {index}\n\n".encode()
+                await asyncio.sleep(0.001)
+        finally:
+            self.closed.set()
+
+
 @EVERY_TOOLKIT
 async def test_a_client_leaving_closes_the_stream_it_was_reading(orders_app) -> None:
     feed = SilentFeed()
@@ -36,5 +47,19 @@ async def test_a_client_leaving_closes_the_stream_it_was_reading(orders_app) -> 
             async with client.stream("GET", "/feed") as response:
                 assert response.status_code == 200
                 await feed.started.wait()
+
+        await asyncio.wait_for(feed.closed.wait(), timeout=5)
+
+
+@EVERY_TOOLKIT
+async def test_a_client_leaving_a_busy_stream_closes_it(orders_app) -> None:
+    feed = BusyFeed()
+    app = orders_app(ApiSettings(title="orders-api"), feed=feed.frames)
+
+    async with running_server(app) as base_url:
+        async with httpx.AsyncClient(base_url=base_url) as client:
+            async with client.stream("GET", "/feed") as response:
+                assert response.status_code == 200
+                await anext(response.aiter_bytes())
 
         await asyncio.wait_for(feed.closed.wait(), timeout=5)
