@@ -29,8 +29,6 @@ FAST_RETRY = RetrySettings(
 
 
 class ScriptedTransport(httpx.AsyncBaseTransport):
-    """A fake wrapped transport that plays back a scripted sequence of responses/exceptions."""
-
     def __init__(self, script: list[httpx.Response | BaseException]) -> None:
         self._script = list(script)
         self.requests: list[httpx.Request] = []
@@ -78,7 +76,7 @@ class FakeRetry(Retry):
         return self._settings
 
     def decorator(self, func):
-        return func  # passthrough: no retrying
+        return func
 
 
 def make_request(method: str = "GET", json: dict[str, Any] | None = None) -> httpx.Request:
@@ -115,11 +113,10 @@ async def test_error_response_is_returned_not_raised():
     assert response.json() == {"error": "missing"}
 
 
+# Records whether the body was actually iterated, so tests can prove the
+# transport drained it rather than trusting that Response(json=...) is
+# already pre-materialized.
 class TrackingByteStream(httpx.AsyncByteStream):
-    """A response body stream that records whether it was actually iterated,
-    so tests can prove the transport drained it rather than just trusting
-    that Response(json=...) is already pre-materialized."""
-
     def __init__(self, content: bytes) -> None:
         self._content = content
         self.iterated = False

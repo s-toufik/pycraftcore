@@ -179,6 +179,7 @@ server = config.server.asgi("weather-api")  # AsgiServer
 
 - `log` is a `LogLevel` (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`, upper case): pass it to `configure_logging(config.log)`.
 - A server holds `base_path`, `docs` and `cors_origins`: turn them into the web toolkit's `ApiSettings` (see [Serving an HTTP API](#serving-an-http-api)). Which framework serves the API is a choice made in code, not in the configuration.
+- An MCP connector can hold a `refresh` block for clients that re-read the server's tools in the background: `interval` (seconds between reads while it answers, default 60), `retry_delay` (the first wait after a failure, default 5, doubled each time) and `max_retry_delay` (the longest wait, default 60). Leave it out to keep the defaults.
 - `parameters` is yours: pycraftcore passes it through untouched. `oc.env` always gives strings, so convert the values where you read them.
 - `log` and `server` are required, like `connector` and `operation`. A service that serves no HTTP API writes `server: {}`.
 

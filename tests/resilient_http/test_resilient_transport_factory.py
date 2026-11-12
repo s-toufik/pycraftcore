@@ -95,7 +95,7 @@ def test_create_async_client_applies_configured_timeout_and_limits():
     client = factory.create_async_client(MagicMock(spec=httpx.AsyncBaseTransport))
 
     assert client.timeout == httpx.Timeout(15)
-    assert client._transport is not None  # sanity: client constructed successfully
+    assert client._transport is not None
 
 
 def test_init_builds_retry_and_circuit_breaker_from_settings():

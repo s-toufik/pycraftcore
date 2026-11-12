@@ -7,6 +7,7 @@ from pycraftcore.application_configuration.model.connector import (
     DatabaseConnector,
     FileConnector,
     McpConnector,
+    McpRefresh,
     TelemetryConnector,
 )
 from pycraftcore.authentication.model.auth_type import AuthType
@@ -147,3 +148,28 @@ def test_registry_lookup_of_missing_connector_raises_key_error():
 def test_registry_rejects_a_connector_bucketed_under_the_wrong_type():
     with pytest.raises(TypeError):
         ConnectorRegistry({ConnectorType.api: {"db": make_database_connector()}})
+
+
+def test_mcp_connector_defaults_its_refresh_settings():
+    connector = McpConnector(
+        name="tools",
+        type=ConnectorType.mcp,
+        auth=NoAuth(type=AuthType.none),
+        base_url="https://mcp.test.com",
+        timeout=5,
+    )
+
+    assert connector.refresh == McpRefresh(interval=60.0, retry_delay=5.0, max_retry_delay=60.0)
+
+
+@pytest.mark.parametrize(
+    ("settings", "message"),
+    [
+        ({"interval": 0}, "interval"),
+        ({"retry_delay": 0}, "retry_delay"),
+        ({"retry_delay": 10, "max_retry_delay": 5}, "max_retry_delay"),
+    ],
+)
+def test_mcp_refresh_rejects_settings_that_cannot_schedule(settings, message):
+    with pytest.raises(ValueError, match=message):
+        McpRefresh(**settings)

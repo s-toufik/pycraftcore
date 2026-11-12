@@ -16,7 +16,7 @@ from pycraftcore.circuit_breaker.exception.circuit_breaker_open_exception import
     CircuitBreakerOpenException,
 )
 
-# NOTE: `func` must be a plain coroutine function, not unittest.mock.AsyncMock.
+# `func` must be a plain coroutine function, not unittest.mock.AsyncMock.
 # aiobreaker's CircuitBreaker.call_async() special-cases any callable whose
 # `_ignore_on_call` attribute is truthy (its own @breaker-decorator marker) and
 # bypasses the breaker entirely -- and AsyncMock auto-vivifies that attribute
@@ -237,7 +237,7 @@ class TestCircuitBreakerLogger:
     def test_failure_does_nothing_without_logger(self):
         cb_logger = CircuitBreakerLogger(CircuitBreakerSettings())
 
-        cb_logger.failure(MagicMock(), ValueError("boom"))  # must not raise
+        cb_logger.failure(MagicMock(), ValueError("boom"))
 
     def test_success_is_a_no_op(self):
         cb_logger = CircuitBreakerLogger(CircuitBreakerSettings())
@@ -276,4 +276,4 @@ class TestCircuitBreakerLogger:
     def test_state_change_does_nothing_without_logger(self):
         cb_logger = CircuitBreakerLogger(CircuitBreakerSettings())
 
-        cb_logger.state_change(MagicMock(), MagicMock(), MagicMock())  # must not raise
+        cb_logger.state_change(MagicMock(), MagicMock(), MagicMock())
