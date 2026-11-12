@@ -59,7 +59,7 @@ A bare `pycraftcore` installs no third-party packages: only `authentication`, `c
 
 List every module your code imports, even when one extra already brings in another. That way your service stays correct if these links change. For the Python sandbox, use `runtime-sandbox` rather than `runtime`: the sandboxed code runs on your service's interpreter, so the libraries it may import (pandas, numpy, matplotlib, dateutil) must be installed there.
 
-Development builds (tags on `develop`, such as `5.1.0rc1`) are published to TestPyPI; use them for testing only. Their dependencies come from PyPI, so add it as an extra index, and name the version, since pip skips pre-releases otherwise:
+Development builds (tags on `develop`, such as `v5.1.0-rc.1`, published as `5.1.0rc1`) are published to TestPyPI; use them for testing only. Their dependencies come from PyPI, so add it as an extra index, and name the version, since pip skips pre-releases otherwise:
 
 ```bash
 pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pycraftcore[http]==5.1.0rc1"
@@ -427,7 +427,7 @@ Every push and pull request runs the checks; only a tag publishes, and the branc
 ```text
  feature/…  ──PR──►  develop  ──PR──►  main
                         │                │
-                  tag vX.Y.ZrcN     tag vX.Y.Z
+                tag vX.Y.Z-rc.N    tag vX.Y.Z
                         ▼                ▼
                     TestPyPI           PyPI
 ```
@@ -436,12 +436,13 @@ Every push and pull request runs the checks; only a tag publishes, and the branc
 |---|---|---|
 | Pull request to `develop` or `main` | LINT, TYPECHECK, TEST, EXTRAS, BUILD | nothing |
 | Push to `develop` or `main` | the same | nothing |
-| Tag `v…` on a commit of `main` | the same + RELEASE TARGET + PUBLISH | PyPI |
-| Tag `v…` on a commit of `develop` only | the same + RELEASE TARGET + PUBLISH | TestPyPI |
-| Tag on neither | RELEASE TARGET fails | nothing |
+| Tag `vX.Y.Z-rc.N` on a commit only on `develop` | the same + RELEASE TARGET + PUBLISH | TestPyPI |
+| Tag `vX.Y.Z` on a commit of `main` | the same + RELEASE TARGET + PUBLISH | PyPI |
+| Tag on neither branch, a pre-release on `main`, a final version only on `develop` | RELEASE TARGET fails | nothing |
 
-- The tag is the version: `v5.1.0` builds `5.1.0` and `v5.1.0rc1` builds `5.1.0rc1`, whatever `pyproject.toml` says (the run notes it when they differ). Keep `pyproject.toml` on the next version anyway, for local builds.
-- A tag name is used once, so tags on `develop` are pre-releases (`vX.Y.ZrcN`, `vX.Y.Z.devN`) and the final `vX.Y.Z` goes on `main`. PyPI and TestPyPI both refuse a version they already have.
+- The tag is the version: `v5.1.0` builds `5.1.0` and `v5.1.0-rc.1` builds `5.1.0rc1` (the Python spelling), whatever `pyproject.toml` says (the run notes it when they differ). Keep `pyproject.toml` on the next version anyway, for local builds.
+- A tag name is used once, so tags on `develop` are pre-releases (`vX.Y.Z-rc.N`) and the final `vX.Y.Z` goes on `main`. PyPI and TestPyPI both refuse a version they already have.
+- RELEASE TARGET is the same job in every repository with this pipeline (agent-runtime, agent-toolbox, homelab-ui, pricelab): only what a channel publishes differs.
 - A commit on both branches (after `main` is merged back into `develop`) counts as `main`.
 - PUBLISH runs in the `production` environment, with `TEST_PYPI_TOKEN`, `RELEASE_PYPI_TOKEN` and the `TEST_PYPI_URL` variable.
 
@@ -449,8 +450,8 @@ Try a version on TestPyPI:
 
 ```bash
 git switch develop && git pull
-git tag v5.1.0rc1
-git push origin v5.1.0rc1
+git tag v5.1.0-rc.1
+git push origin v5.1.0-rc.1
 ```
 
 Release it:

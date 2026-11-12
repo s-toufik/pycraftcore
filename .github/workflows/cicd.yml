@@ -5,7 +5,7 @@ on:
     branches: [main, develop]
   push:
     branches: [main, develop]
-    # A release: a tag on main goes to PyPI, a tag on develop to TestPyPI, as version X.Y.Z
+    # A tag on main (vX.Y.Z) is published to PyPI, a tag on develop (vX.Y.Z-rc.N) to TestPyPI
     tags: ['v*.*.*']
 
 jobs:
@@ -199,7 +199,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag'
     outputs:
-      index: ${{ steps.target.outputs.index }}
+      channel: ${{ steps.target.outputs.channel }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -212,15 +212,24 @@ jobs:
             +refs/heads/main:refs/remotes/origin/main \
             +refs/heads/develop:refs/remotes/origin/develop
           if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            index=pypi
+            channel=release
           elif git merge-base --is-ancestor "$GITHUB_SHA" origin/develop; then
-            index=testpypi
+            channel=prerelease
           else
             echo "::error::$GITHUB_REF_NAME is on neither main nor develop: nothing is published"
             exit 1
           fi
-          echo "index=$index" >> "$GITHUB_OUTPUT"
-          echo "::notice::$GITHUB_REF_NAME is published to $index"
+          final='^v[0-9]+\.[0-9]+\.[0-9]+$'
+          if [ "$channel" = release ] && ! [[ "$GITHUB_REF_NAME" =~ $final ]]; then
+            echo "::error::$GITHUB_REF_NAME is on main: a release is vX.Y.Z"
+            exit 1
+          fi
+          if [ "$channel" = prerelease ] && [[ "$GITHUB_REF_NAME" =~ $final ]]; then
+            echo "::error::$GITHUB_REF_NAME is only on develop: a pre-release is vX.Y.Z-rc.N"
+            exit 1
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "::notice::$GITHUB_REF_NAME is a $channel"
 
   publish:
     name: 🚀 PUBLISH
@@ -240,8 +249,8 @@ jobs:
       - name: Install uv
         run: pip install --upgrade pip uv
 
-      - name: Publish to TestPyPI (tag on develop)
-        if: needs.release.outputs.index == 'testpypi'
+      - name: Publish to TestPyPI (pre-release, tag on develop)
+        if: needs.release.outputs.channel == 'prerelease'
         env:
           UV_TEST_PYPI_URL: ${{ vars.TEST_PYPI_URL }}
           UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_TOKEN }}
@@ -249,8 +258,8 @@ jobs:
           echo "Publishing $GITHUB_REF_NAME to TestPyPI..."
           uv publish --publish-url "$UV_TEST_PYPI_URL"
 
-      - name: Publish to PyPI (tag on main)
-        if: needs.release.outputs.index == 'pypi'
+      - name: Publish to PyPI (release, tag on main)
+        if: needs.release.outputs.channel == 'release'
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.RELEASE_PYPI_TOKEN }}
         run: |
