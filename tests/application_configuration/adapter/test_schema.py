@@ -16,7 +16,7 @@ from pycraftcore.application_configuration.model.configuration import (
     ApplicationConfiguration,
 )
 from pycraftcore.application_configuration.enum.server_type import ServerType
-from pycraftcore.application_configuration.model.connector import McpConnector
+from pycraftcore.application_configuration.model.connector import McpConnector, McpRefresh
 from pycraftcore.application_configuration.model.server import AsgiServer
 from pycraftcore.logger.enum.log_level import LogLevel
 
@@ -69,6 +69,51 @@ def test_mcp_connector_dict_resolves_to_mcp_connector_via_the_type_discriminator
     assert isinstance(connector, McpConnector)
     assert connector.base_url == "https://mcp.test.com"
     assert connector.transport == "streamable_http"
+
+
+def test_mcp_connector_reads_refresh_settings_given_as_strings():
+    schema = ApplicationConfigurationSchema(
+        **REQUIRED
+        | {
+            "connector": {
+                ConnectorType.mcp: {
+                    "tools": {
+                        "name": "tools",
+                        "type": "mcp",
+                        "auth": {"type": "none"},
+                        "base_url": "https://mcp.test.com",
+                        "timeout": 5,
+                        "refresh": {"interval": "120", "retry_delay": "2", "max_retry_delay": "30"},
+                    }
+                }
+            }
+        }
+    )
+
+    connector = MapperDomainSchema.map(schema).connector.mcp("tools")
+
+    assert connector.refresh == McpRefresh(interval=120, retry_delay=2, max_retry_delay=30)
+
+
+def test_mcp_connector_refuses_a_refresh_that_cannot_schedule():
+    with pytest.raises(ValidationError, match="max_retry_delay"):
+        ApplicationConfigurationSchema(
+            **REQUIRED
+            | {
+                "connector": {
+                    ConnectorType.mcp: {
+                        "tools": {
+                            "name": "tools",
+                            "type": "mcp",
+                            "auth": {"type": "none"},
+                            "base_url": "https://mcp.test.com",
+                            "timeout": 5,
+                            "refresh": {"retry_delay": 10, "max_retry_delay": 5},
+                        }
+                    }
+                }
+            }
+        )
 
 
 @pytest.mark.parametrize("missing", ["log", "server"])

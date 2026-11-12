@@ -30,8 +30,6 @@ STATE_MAPPING: dict[CircuitBreakerState, CircuitState] = {
 
 
 class CircuitBreakerLogger(CircuitBreakerListener):
-    """Bridges aiobreaker state changes onto the `Logger` port."""
-
     def __init__(self, settings: CircuitBreakerSettings, logger: Logger | None = None) -> None:
         self._settings: CircuitBreakerSettings = settings
         self._logger: Logger | None = logger
@@ -47,8 +45,7 @@ class CircuitBreakerLogger(CircuitBreakerListener):
         return None
 
     def state_change(self, breaker: CircuitBreaker, old: object, new: object) -> None:
-        """aiobreaker hands over state *objects*, not enum members."""
-
+        # aiobreaker hands over state *objects*, not enum members.
         if not self._logger:
             return
 

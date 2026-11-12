@@ -5,6 +5,8 @@ on:
     branches: [main, develop]
   push:
     branches: [main, develop]
+    # A release: a tag on main goes to PyPI, a tag on develop to TestPyPI, as version X.Y.Z
+    tags: ['v*.*.*']
 
 jobs:
   lint:
@@ -172,6 +174,16 @@ jobs:
           pip install --upgrade pip uv
           uv sync --locked --all-groups --all-extras
 
+      - name: Take the version from the tag
+        if: github.ref_type == 'tag'
+        run: |
+          declared="$(uv version --short)"
+          uv version --frozen "${GITHUB_REF_NAME#v}"
+          built="$(uv version --short)"
+          if [ "$declared" != "$built" ]; then
+            echo "::notice::pyproject.toml says $declared; the tag publishes $built"
+          fi
+
       - name: Build package
         run: |
           uv build
@@ -182,17 +194,43 @@ jobs:
           name: dist
           path: dist/
 
+  release:
+    name: 🏷️ RELEASE TARGET
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    outputs:
+      index: ${{ steps.target.outputs.index }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find the branch the tag is on
+        id: target
+        run: |
+          git fetch --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/develop:refs/remotes/origin/develop
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            index=pypi
+          elif git merge-base --is-ancestor "$GITHUB_SHA" origin/develop; then
+            index=testpypi
+          else
+            echo "::error::$GITHUB_REF_NAME is on neither main nor develop: nothing is published"
+            exit 1
+          fi
+          echo "index=$index" >> "$GITHUB_OUTPUT"
+          echo "::notice::$GITHUB_REF_NAME is published to $index"
+
   publish:
     name: 🚀 PUBLISH
     runs-on: ubuntu-latest
     container:
       image: python:3.14
-    needs: build
-    if: github.event_name == 'push'
+    needs: [build, release]
+    if: github.ref_type == 'tag'
     environment: production
     steps:
-      - uses: actions/checkout@v4
-
       - name: Download dist artifact
         uses: actions/download-artifact@v4
         with:
@@ -202,19 +240,19 @@ jobs:
       - name: Install uv
         run: pip install --upgrade pip uv
 
-      - name: Publish to TestPyPI (develop)
-        if: github.ref_name == 'develop'
+      - name: Publish to TestPyPI (tag on develop)
+        if: needs.release.outputs.index == 'testpypi'
         env:
           UV_TEST_PYPI_URL: ${{ vars.TEST_PYPI_URL }}
           UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_TOKEN }}
         run: |
-          echo "Publishing to TestPyPI..."
+          echo "Publishing $GITHUB_REF_NAME to TestPyPI..."
           uv publish --publish-url "$UV_TEST_PYPI_URL"
 
-      - name: Publish to PyPI (main)
-        if: github.ref_name == 'main'
+      - name: Publish to PyPI (tag on main)
+        if: needs.release.outputs.index == 'pypi'
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.RELEASE_PYPI_TOKEN }}
         run: |
-          echo "Publishing to PyPI..."
+          echo "Publishing $GITHUB_REF_NAME to PyPI..."
           uv publish

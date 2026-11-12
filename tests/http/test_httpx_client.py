@@ -211,7 +211,7 @@ async def test_event_log_does_nothing_without_logger():
     factory = HttpxClientFactory()
     request = MagicMock()
 
-    await factory._event_log(request)  # must not raise
+    await factory._event_log(request)
 
     await factory.close()
 

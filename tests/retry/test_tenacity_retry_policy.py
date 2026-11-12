@@ -47,7 +47,6 @@ async def test_reraises_original_exception_after_exhausting_attempts():
     with pytest.raises(ValueError, match="boom"):
         await wrapped()
 
-    # attempts = retry_count + 1
     assert mock_func.await_count == 3
 
 
@@ -172,7 +171,7 @@ async def test_does_not_log_when_no_logger_provided():
     mock_func = AsyncMock(side_effect=[ValueError("fail"), "ok"])
     wrapped = policy.decorator(mock_func)
 
-    await wrapped()  # must not raise
+    await wrapped()
 
 
 def test_settings_property_returns_configured_settings():

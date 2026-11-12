@@ -59,10 +59,10 @@ A bare `pycraftcore` installs no third-party packages: only `authentication`, `c
 
 List every module your code imports, even when one extra already brings in another. That way your service stays correct if these links change. For the Python sandbox, use `runtime-sandbox` rather than `runtime`: the sandboxed code runs on your service's interpreter, so the libraries it may import (pandas, numpy, matplotlib, dateutil) must be installed there.
 
-Development builds are published to TestPyPI; use them for testing only. Their dependencies come from PyPI, so add it as an extra index:
+Development builds (tags on `develop`, such as `5.1.0rc1`) are published to TestPyPI; use them for testing only. Their dependencies come from PyPI, so add it as an extra index, and name the version, since pip skips pre-releases otherwise:
 
 ```bash
-pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pycraftcore[http]"
+pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pycraftcore[http]==5.1.0rc1"
 ```
 
 ### What's inside
@@ -179,6 +179,7 @@ server = config.server.asgi("weather-api")  # AsgiServer
 
 - `log` is a `LogLevel` (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`, upper case): pass it to `configure_logging(config.log)`.
 - A server holds `base_path`, `docs` and `cors_origins`: turn them into the web toolkit's `ApiSettings` (see [Serving an HTTP API](#serving-an-http-api)). Which framework serves the API is a choice made in code, not in the configuration.
+- An MCP connector can hold a `refresh` block for clients that re-read the server's tools in the background: `interval` (seconds between reads while it answers, default 60), `retry_delay` (the first wait after a failure, default 5, doubled each time) and `max_retry_delay` (the longest wait, default 60). Leave it out to keep the defaults.
 - `parameters` is yours: pycraftcore passes it through untouched. `oc.env` always gives strings, so convert the values where you read them.
 - `log` and `server` are required, like `connector` and `operation`. A service that serves no HTTP API writes `server: {}`.
 
@@ -421,9 +422,49 @@ uv run pre-commit install --hook-type pre-commit --hook-type pre-push
 
 ### Releasing
 
-1. Bump `version` in `pyproject.toml`.
-2. `make build`.
-3. `make publish_dev` to TestPyPI (needs `TEST_PYPI_TOKEN`), try it in a service, then `make publish` to PyPI (needs `RELEASE_PYPI_TOKEN`).
+Every push and pull request runs the checks; only a tag publishes, and the branch it is on decides where:
+
+```text
+ feature/…  ──PR──►  develop  ──PR──►  main
+                        │                │
+                  tag vX.Y.ZrcN     tag vX.Y.Z
+                        ▼                ▼
+                    TestPyPI           PyPI
+```
+
+| Event | CI ([`.github/workflows/cicd.yml`](.github/workflows/cicd.yml)) | Publishes |
+|---|---|---|
+| Pull request to `develop` or `main` | LINT, TYPECHECK, TEST, EXTRAS, BUILD | nothing |
+| Push to `develop` or `main` | the same | nothing |
+| Tag `v…` on a commit of `main` | the same + RELEASE TARGET + PUBLISH | PyPI |
+| Tag `v…` on a commit of `develop` only | the same + RELEASE TARGET + PUBLISH | TestPyPI |
+| Tag on neither | RELEASE TARGET fails | nothing |
+
+- The tag is the version: `v5.1.0` builds `5.1.0` and `v5.1.0rc1` builds `5.1.0rc1`, whatever `pyproject.toml` says (the run notes it when they differ). Keep `pyproject.toml` on the next version anyway, for local builds.
+- A tag name is used once, so tags on `develop` are pre-releases (`vX.Y.ZrcN`, `vX.Y.Z.devN`) and the final `vX.Y.Z` goes on `main`. PyPI and TestPyPI both refuse a version they already have.
+- A commit on both branches (after `main` is merged back into `develop`) counts as `main`.
+- PUBLISH runs in the `production` environment, with `TEST_PYPI_TOKEN`, `RELEASE_PYPI_TOKEN` and the `TEST_PYPI_URL` variable.
+
+Try a version on TestPyPI:
+
+```bash
+git switch develop && git pull
+git tag v5.1.0rc1
+git push origin v5.1.0rc1
+```
+
+Release it:
+
+1. Bump `version` in `pyproject.toml` on `develop`, then merge `develop` into `main` (pull request); CI is green.
+2. Tag `main`:
+   ```bash
+   git switch main && git pull
+   git tag v5.1.0
+   git push origin v5.1.0
+   ```
+3. **Actions**: RELEASE TARGET says `pypi`, PUBLISH is green.
 4. Raise the minimum version in the services that need the change (`pycraftcore[<extras>]>=…` in their `pyproject.toml`), then `uv lock --upgrade-package pycraftcore`.
+
+`make publish_dev` and `make publish` still publish a local `make build` by hand, with the same tokens.
 
 To work on pycraftcore and a service at the same time, point the service at your checkout with an editable path dependency in its `pyproject.toml`: `pycraftcore = { path = "../pycraftcore", editable = true }` under `[tool.uv.sources]`.

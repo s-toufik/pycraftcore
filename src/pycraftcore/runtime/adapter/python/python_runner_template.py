@@ -3,10 +3,8 @@ from string import Template
 
 
 _PYTHON_SAFE_BUILTINS: tuple[str, ...] = (
-    # Constants
     "Ellipsis",
     "NotImplemented",
-    # Types and constructors
     "bool",
     "bytearray",
     "bytes",
@@ -24,7 +22,6 @@ _PYTHON_SAFE_BUILTINS: tuple[str, ...] = (
     "str",
     "tuple",
     "type",
-    # Classes and introspection
     "callable",
     "classmethod",
     "delattr",
@@ -39,7 +36,6 @@ _PYTHON_SAFE_BUILTINS: tuple[str, ...] = (
     "setattr",
     "staticmethod",
     "super",
-    # Iteration
     "aiter",
     "all",
     "anext",
@@ -53,7 +49,6 @@ _PYTHON_SAFE_BUILTINS: tuple[str, ...] = (
     "reversed",
     "sorted",
     "zip",
-    # Math
     "abs",
     "divmod",
     "max",
@@ -61,7 +56,6 @@ _PYTHON_SAFE_BUILTINS: tuple[str, ...] = (
     "pow",
     "round",
     "sum",
-    # Conversion and formatting
     "ascii",
     "bin",
     "chr",
@@ -71,7 +65,6 @@ _PYTHON_SAFE_BUILTINS: tuple[str, ...] = (
     "ord",
     "print",
     "repr",
-    # Exceptions
     "ArithmeticError",
     "AssertionError",
     "AttributeError",
@@ -111,7 +104,6 @@ _PYTHON_SAFE_BUILTINS: tuple[str, ...] = (
     "UnicodeError",
     "ValueError",
     "ZeroDivisionError",
-    # Warnings
     "BytesWarning",
     "DeprecationWarning",
     "FutureWarning",
@@ -123,18 +115,15 @@ _PYTHON_SAFE_BUILTINS: tuple[str, ...] = (
 
 PYTHON_ALLOWLIST: frozenset[str] = frozenset(
     {
-        # Data and plotting
         "pandas",
         "numpy",
         "matplotlib",
         "mpl_toolkits",
-        # Date and time
         "datetime",
         "time",
         "calendar",
         "zoneinfo",
         "dateutil",
-        # Math and numbers
         "math",
         "cmath",
         "statistics",
@@ -142,19 +131,16 @@ PYTHON_ALLOWLIST: frozenset[str] = frozenset(
         "fractions",
         "numbers",
         "random",
-        # Text
         "re",
         "string",
         "textwrap",
         "difflib",
         "unicodedata",
-        # Data formats
         "json",
         "csv",
         "base64",
         "hashlib",
         "uuid",
-        # Data structures and functional tools
         "collections",
         "itertools",
         "functools",
@@ -164,7 +150,6 @@ PYTHON_ALLOWLIST: frozenset[str] = frozenset(
         "array",
         "copy",
         "pprint",
-        # Typing and class helpers
         "typing",
         "dataclasses",
         "enum",
