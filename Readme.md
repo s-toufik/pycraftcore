@@ -14,7 +14,7 @@ A shared technical foundation for Python services: configuration, logging, telem
   │  set up      application_configuration · logger · telemetry · context     │
   │  talk out    http · resilient_http (retry + circuit_breaker)              │
   │  serve       web: ASGI APIs on Litestar, FastAPI or BlackSheep            │
-  │  store       repository: SQLite · PostgreSQL · MongoDB                    │
+  │  store       repository: SQLite · PostgreSQL · MongoDB · SQLAlchemy       │
   │  run safely  query_language (read-only SQL) · runtime (Python sandbox)    │
   │  utilities   file_handler · serializer · computation_engine · profiler    │
   │  …           new modules, same port + adapter shape                       │
@@ -55,11 +55,11 @@ A bare `pycraftcore` installs no third-party packages: only `authentication`, `c
 | `application_configuration` | omegaconf, pydantic, python-dotenv | `http`, `logger`, `authentication` |
 | `telemetry` | opentelemetry (api, sdk, otlp exporter, logging instrumentation) | `application_configuration`, `context` |
 | `resilient_http` | aiohttp, httpx | `circuit_breaker`, `http`, `retry`, `telemetry` |
-| `repository` | aiosqlite, pymongo, psycopg, psycopg-pool, orjson, pydantic | `application_configuration`, `authentication` |
+| `repository` | aiosqlite, pymongo, psycopg, psycopg-pool, sqlalchemy, orjson, pydantic | `application_configuration`, `authentication` |
 
 List every module your code imports, even when one extra already brings in another. That way your service stays correct if these links change. For the Python sandbox, use `runtime-sandbox` rather than `runtime`: the sandboxed code runs on your service's interpreter, so the libraries it may import (pandas, numpy, matplotlib, dateutil) must be installed there.
 
-Development builds (tags on `develop`, such as `5.1.0rc1`) are published to TestPyPI; use them for testing only. Their dependencies come from PyPI, so add it as an extra index, and name the version, since pip skips pre-releases otherwise:
+Development builds (tags on `develop`, such as `v5.1.0-rc.1`, published as `5.1.0rc1`) are published to TestPyPI; use them for testing only. Their dependencies come from PyPI, so add it as an extra index, and name the version, since pip skips pre-releases otherwise:
 
 ```bash
 pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pycraftcore[http]==5.1.0rc1"
@@ -81,7 +81,7 @@ Each module stands on its own: use the ones you need. The modules today (new one
 | `web_litestar`, `web_fastapi`, `web_blacksheep` | One toolkit per framework: build the app with pycraftcore's conventions and write your routes with the framework's own features |
 | `resilient_http` | An HTTP transport with retries and a circuit breaker built in |
 | `retry`, `circuit_breaker` | The two policies on their own, for any async call |
-| `repository` | Async repositories built from a database connector — today SQLite (pooled), PostgreSQL and MongoDB |
+| `repository` | Async repositories built from a database connector — today SQLite (pooled), PostgreSQL, MongoDB, and SQLAlchemy (PostgreSQL or SQLite, for libraries that need an engine) |
 | `query_language` | Checks that a SQL statement is read-only, and translates between dialects, before it reaches a database |
 | `runtime` | Runs untrusted Python in a separate process with memory, time and module limits; optionally lets it call your functions |
 | `file_handler` | Read and write files by extension (today csv, json, yml, md, txt, svg); a new format is a new reader/writer pair |
@@ -330,6 +330,40 @@ await factory.disconnect()
 
 `PostgresRepositoryFactory` / `PostgresSettingsMapper` and `MongoRepositoryFactory` / `MongoSettingsMapper` work the same way, and so will any database added later: a factory, a settings mapper and a repository behind the same `AsyncRepository` port.
 
+Every factory has three methods: `connect()` gives the `AsyncRepository`, `connection()` gives the driver's own client, and `disconnect()` closes both. Use `connection()` to hand the database to a library that brings its own code, such as LangGraph's checkpointers (`MongoClient`, an aiosqlite connection).
+
+#### SQLAlchemy
+
+For a library that asks for a SQLAlchemy engine, `SqlAlchemyRepositoryFactory` manages one: it builds it once, checks it answers, and disposes of it. How the engine is built is injected, as an engine builder made from the existing PostgreSQL or SQLite settings, so the factory never knows which database it's on:
+
+```python
+from pycraftcore.repository.adapter import (
+    PostgresEngineBuilder,
+    PostgresSettingsMapper,
+    SqlAlchemyRepositoryFactory,
+    SqliteEngineBuilder,
+    SqliteSettingsMapper,
+)
+
+postgres = PostgresEngineBuilder(PostgresSettingsMapper(config.connector.database("tasks"))())
+sqlite = SqliteEngineBuilder(SqliteSettingsMapper(config.connector.database("tasks_fallback"))())
+
+factory = SqlAlchemyRepositoryFactory(postgres)   # or sqlite: same factory
+await factory.ping()                              # raises when the database can't be reached
+engine = await factory.connection()               # an AsyncEngine, for the library
+await factory.disconnect()                        # disposes the engine
+```
+
+| Builder | Settings | Engine |
+|---|---|---|
+| `PostgresEngineBuilder` | `PostgresConnector` | `postgresql+psycopg`, a pool of `pool.max` connections checked before use (`pool_pre_ping`), so a database restart doesn't leave dead connections |
+| `SqliteEngineBuilder` | `SqliteConnector` | `sqlite+aiosqlite` on the file `SqliteDatabaseFile` prepares (`<host>/<default_name>.db`, folder created); every connection it opens gets the same PRAGMAs as `SqliteRepositoryFactory` (WAL, a 5-second busy timeout, `synchronous=NORMAL`) |
+
+- Both builders use the drivers the other adapters use, so there's no other driver to install.
+- Another database is another class with a `build() -> AsyncEngine` method (the `SqlAlchemyEngineBuilder` protocol); the factory doesn't change.
+- `connect()` also gives an `AsyncRepository`. Its `execute(query, parameters)` takes the driver's own placeholders, as the other SQL adapters do: `%s` for PostgreSQL, `?` for SQLite. Each call runs in its own transaction.
+- The factory builds the engine and nothing else: tables belong to the code that owns them, through its own models or migrations.
+
 ### Read-only SQL
 
 ```python
@@ -427,7 +461,7 @@ Every push and pull request runs the checks; only a tag publishes, and the branc
 ```text
  feature/…  ──PR──►  develop  ──PR──►  main
                         │                │
-                  tag vX.Y.ZrcN     tag vX.Y.Z
+                tag vX.Y.Z-rc.N    tag vX.Y.Z
                         ▼                ▼
                     TestPyPI           PyPI
 ```
@@ -436,12 +470,13 @@ Every push and pull request runs the checks; only a tag publishes, and the branc
 |---|---|---|
 | Pull request to `develop` or `main` | LINT, TYPECHECK, TEST, EXTRAS, BUILD | nothing |
 | Push to `develop` or `main` | the same | nothing |
-| Tag `v…` on a commit of `main` | the same + RELEASE TARGET + PUBLISH | PyPI |
-| Tag `v…` on a commit of `develop` only | the same + RELEASE TARGET + PUBLISH | TestPyPI |
-| Tag on neither | RELEASE TARGET fails | nothing |
+| Tag `vX.Y.Z-rc.N` on a commit only on `develop` | the same + RELEASE TARGET + PUBLISH | TestPyPI |
+| Tag `vX.Y.Z` on a commit of `main` | the same + RELEASE TARGET + PUBLISH | PyPI |
+| Tag on neither branch, a pre-release on `main`, a final version only on `develop` | RELEASE TARGET fails | nothing |
 
-- The tag is the version: `v5.1.0` builds `5.1.0` and `v5.1.0rc1` builds `5.1.0rc1`, whatever `pyproject.toml` says (the run notes it when they differ). Keep `pyproject.toml` on the next version anyway, for local builds.
-- A tag name is used once, so tags on `develop` are pre-releases (`vX.Y.ZrcN`, `vX.Y.Z.devN`) and the final `vX.Y.Z` goes on `main`. PyPI and TestPyPI both refuse a version they already have.
+- The tag is the version: `v5.1.0` builds `5.1.0` and `v5.1.0-rc.1` builds `5.1.0rc1` (the Python spelling), whatever `pyproject.toml` says (the run notes it when they differ). Keep `pyproject.toml` on the next version anyway, for local builds.
+- A tag name is used once, so tags on `develop` are pre-releases (`vX.Y.Z-rc.N`) and the final `vX.Y.Z` goes on `main`. PyPI and TestPyPI both refuse a version they already have.
+- RELEASE TARGET is the same job in every repository with this pipeline (agent-runtime, agent-toolbox, homelab-ui, pricelab): only what a channel publishes differs.
 - A commit on both branches (after `main` is merged back into `develop`) counts as `main`.
 - PUBLISH runs in the `production` environment, with `TEST_PYPI_TOKEN`, `RELEASE_PYPI_TOKEN` and the `TEST_PYPI_URL` variable.
 
@@ -449,8 +484,8 @@ Try a version on TestPyPI:
 
 ```bash
 git switch develop && git pull
-git tag v5.1.0rc1
-git push origin v5.1.0rc1
+git tag v5.1.0-rc.1
+git push origin v5.1.0-rc.1
 ```
 
 Release it:
