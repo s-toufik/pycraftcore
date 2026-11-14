@@ -6,7 +6,14 @@ from pycraftcore.repository.adapter.sql.postgresql.adapter import PostgresReposi
 from pycraftcore.repository.adapter.sql.postgresql.factory import PostgresRepositoryFactory
 from pycraftcore.repository.adapter.sql.postgresql.mapper import PostgresSettingsMapper
 from pycraftcore.repository.adapter.sql.postgresql.schema import PostgresConnector
-from pycraftcore.repository.adapter.sql.sqlite import SqliteConnector
+from pycraftcore.repository.adapter.sql.sqlalchemy import (
+    PostgresEngineBuilder,
+    SqlAlchemyEngineBuilder,
+    SqlAlchemyRepository,
+    SqlAlchemyRepositoryFactory,
+    SqliteEngineBuilder,
+)
+from pycraftcore.repository.adapter.sql.sqlite import SqliteConnector, SqliteDatabaseFile
 from pycraftcore.repository.adapter.sql.sqlite.factory import SqliteRepositoryFactory
 from pycraftcore.repository.adapter.sql.sqlite.adapter import SqliteRepository
 from pycraftcore.repository.adapter.sql.sqlite.mapper import SqliteSettingsMapper
@@ -15,6 +22,7 @@ from pycraftcore.repository.adapter.sql.sqlite.mapper import SqliteSettingsMappe
 __all__ = [
     "SqliteRepositoryFactory",
     "SqliteConnector",
+    "SqliteDatabaseFile",
     "SqliteRepository",
     "SqliteSettingsMapper",
     "MongoRepositoryFactory",
@@ -25,4 +33,9 @@ __all__ = [
     "PostgresConnector",
     "PostgresRepository",
     "PostgresSettingsMapper",
+    "SqlAlchemyRepositoryFactory",
+    "SqlAlchemyEngineBuilder",
+    "SqlAlchemyRepository",
+    "PostgresEngineBuilder",
+    "SqliteEngineBuilder",
 ]

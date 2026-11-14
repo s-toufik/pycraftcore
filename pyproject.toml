@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pycraftcore"
-version = "5.1.0"
+version = "5.2.0"
 authors = [
     { name = "Toufik Saouchi", email = "toufik.saouchi@gmail.com" },
 ]
@@ -49,7 +49,7 @@ web_blacksheep = ["blacksheep", "pycraftcore[web]"]
 resilient_http = ["aiohttp", "httpx", "pycraftcore[circuit_breaker, http, logger, retry, telemetry]"]
 application_configuration = ["omegaconf", "pydantic>=2", "python-dotenv", "pycraftcore[logger, http, authentication]"]
 telemetry = ["opentelemetry-api", "opentelemetry-sdk", "opentelemetry-exporter-otlp", "opentelemetry-instrumentation-logging", "pycraftcore[application_configuration, context]"]
-repository = ["aiosqlite", "pymongo", "psycopg[binary]", "psycopg-pool", "orjson", "pydantic>=2", "pycraftcore[application_configuration, authentication]"]
+repository = ["aiosqlite", "pymongo", "psycopg[binary]", "psycopg-pool", "sqlalchemy[asyncio]>=2", "orjson", "pydantic>=2", "pycraftcore[application_configuration, authentication]"]
 runtime-sandbox = ["pandas", "numpy", "matplotlib", "python-dateutil", "pycraftcore[runtime]"]
 
 all = [
