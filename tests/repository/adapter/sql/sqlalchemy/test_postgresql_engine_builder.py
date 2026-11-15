@@ -1,4 +1,5 @@
 from pycraftcore.repository.adapter.sql.postgresql.schema import PostgresConnector
+from pycraftcore.repository.adapter.sql.sqlalchemy import postgresql_engine_builder
 from pycraftcore.repository.adapter.sql.sqlalchemy.postgresql_engine_builder import (
     PostgresEngineBuilder,
 )
@@ -8,9 +9,10 @@ def make_settings(**overrides) -> PostgresConnector:
     defaults = dict(
         host="db.internal",
         port=5432,
-        default_name="app",
+        database="app",
         user="alice",
         password="p@ss/word",
+        connect_timeout=5,
         min_pool_size=1,
         max_pool_size=3,
     )
@@ -50,3 +52,16 @@ def test_building_does_not_connect():
     engine = PostgresEngineBuilder(make_settings(host="unreachable.invalid")).build()
 
     assert engine.pool.checkedout() == 0
+
+
+def test_connecting_gives_up_after_the_connect_timeout(monkeypatch):
+    calls: list[dict] = []
+    monkeypatch.setattr(
+        postgresql_engine_builder,
+        "create_async_engine",
+        lambda url, **options: calls.append(options),
+    )
+
+    PostgresEngineBuilder(make_settings(connect_timeout=7)).build()
+
+    assert calls[0]["connect_args"] == {"connect_timeout": 7}

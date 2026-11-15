@@ -11,7 +11,7 @@ def make_settings(**overrides) -> MongoConnector:
     defaults = dict(
         host="localhost",
         port=27017,
-        default_name="app",
+        database="app",
         username=None,
         password=None,
         server_selection_timeout_ms=5000,
@@ -70,7 +70,7 @@ async def test_connection_uri_includes_credentials_when_configured():
 
 @pytest.mark.asyncio
 async def test_connect_returns_repository_wrapping_the_client():
-    factory = MongoRepositoryFactory(make_settings(default_name="app"))
+    factory = MongoRepositoryFactory(make_settings(database="app"))
 
     with patch(
         "pycraftcore.repository.adapter.no_sql.mongodb.factory.MongoClient"

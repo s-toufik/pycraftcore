@@ -5,7 +5,7 @@ connector:
     engine: postgres_sql
     host: ${oc.env:DB_HOST}
     port: 5432
-    default_name: ${oc.env:DB_NAME}
+    timeout: 5
     pool:
       min: 2
       max: 10

@@ -11,7 +11,7 @@ from pycraftcore.repository.port.repository import AsyncRepository
 
 @pytest.fixture
 def factory(tmp_path) -> SqlAlchemyRepositoryFactory:
-    settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=1)
+    settings = SqliteConnector(path=str(tmp_path), database="main", max_pool_size=1)
     return SqlAlchemyRepositoryFactory(SqliteEngineBuilder(settings))
 
 

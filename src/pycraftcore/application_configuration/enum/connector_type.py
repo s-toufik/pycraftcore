@@ -8,3 +8,4 @@ class ConnectorType(Enum):
     file = "file"
     telemetry = "telemetry"
     mcp = "mcp"
+    a2a = "a2a"

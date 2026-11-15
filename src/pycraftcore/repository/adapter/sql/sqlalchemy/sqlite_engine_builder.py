@@ -13,7 +13,7 @@ DRIVER: str = "sqlite+aiosqlite"
 class SqliteEngineBuilder:
     def __init__(self, settings: SqliteConnector) -> None:
         self._settings = settings
-        self._file = SqliteDatabaseFile(settings.path, settings.default_name)
+        self._file = SqliteDatabaseFile(settings.path, settings.database)
 
     def build(self) -> AsyncEngine:
         engine = create_async_engine(

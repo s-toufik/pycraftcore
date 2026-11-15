@@ -1,0 +1,10 @@
+operation:
+  dummy_database_op:
+    name: orders
+    type: database
+    connector: ${connector.postgres}
+    database: ${oc.env:DB_NAME}
+    collections:
+      orders: orders
+      events: order_events
+    ttl: 604800

@@ -14,6 +14,7 @@ from pycraftcore.application_configuration.model.configuration import (
     ApplicationConfiguration,
 )
 from pycraftcore.application_configuration.model.connector import (
+    A2aConnector,
     ApiConnector,
     ConnectorRegistry,
     DatabaseConnector,
@@ -22,7 +23,9 @@ from pycraftcore.application_configuration.model.connector import (
     TelemetryConnector,
 )
 from pycraftcore.application_configuration.model.operation import (
+    A2aOperation,
     ApiOperation,
+    DatabaseOperation,
     FileOperation,
     McpOperation,
     OperationRegistry,
@@ -40,14 +43,17 @@ _ConnectorSchemaTyping = Annotated[
     | Annotated[DatabaseConnector, Tag("database")]
     | Annotated[FileConnector, Tag("file")]
     | Annotated[TelemetryConnector, Tag("telemetry")]
-    | Annotated[McpConnector, Tag("mcp")],
+    | Annotated[McpConnector, Tag("mcp")]
+    | Annotated[A2aConnector, Tag("a2a")],
     Discriminator(_kind_tag),
 ]
 
 _OperationSchemaTyping = Annotated[
     Annotated[ApiOperation, Tag("api")]
     | Annotated[FileOperation, Tag("file")]
-    | Annotated[McpOperation, Tag("mcp")],
+    | Annotated[McpOperation, Tag("mcp")]
+    | Annotated[A2aOperation, Tag("a2a")]
+    | Annotated[DatabaseOperation, Tag("database")],
     Discriminator(_kind_tag),
 ]
 

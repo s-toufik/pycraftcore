@@ -16,6 +16,7 @@ class PostgresEngineBuilder:
             pool_size=self._settings.max_pool_size,
             max_overflow=0,
             pool_pre_ping=True,
+            connect_args={"connect_timeout": self._settings.connect_timeout},
         )
 
     def _url(self) -> URL:
@@ -25,5 +26,5 @@ class PostgresEngineBuilder:
             password=self._settings.password,
             host=self._settings.host,
             port=self._settings.port,
-            database=self._settings.default_name,
+            database=self._settings.database,
         )

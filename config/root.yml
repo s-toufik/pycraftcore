@@ -20,8 +20,12 @@ application_configuration:
       open_telemetry: ${connector.telemetry}
     mcp:
       tools: ${connector.tools}
+    a2a:
+      agent: ${connector.agent}
 
   operation:
     dummy_api_1_op: ${operation.dummy_api_1_op}
     dummy_api_2_op: ${operation.dummy_api_2_op}
     dummy_mcp_1_op: ${operation.dummy_mcp_1_op}
+    dummy_database_op: ${operation.dummy_database_op}
+    dummy_a2a_op: ${operation.dummy_a2a_op}

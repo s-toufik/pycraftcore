@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import Any, cast
 
-from omegaconf import DictConfig, OmegaConf
-
+from pycraftcore.application_configuration.adapter.omega_tree_reader import (
+    FILE_EXTENSION,
+    OmegaTreeReader,
+)
 from pycraftcore.application_configuration.adapter.schema import (
     ApplicationConfigurationSchema,
     MapperDomainSchema,
@@ -16,39 +17,19 @@ from pycraftcore.application_configuration.model.configuration import (
 
 
 class OmegaConfigurationReader:
-    FILE_EXTENSION = "yml"
     ROOT_CONFIG_FILE_NAME = "root"
-    CONNECTOR_CONFIG_FILE_NAME = "connector"
-    OPERATION_CONFIG_FILE_NAME = "operation"
-    SERVER_CONFIG_FILE_NAME = "server"
+    ROOT_KEY = "application_configuration"
+    FOLDERS: tuple[str, ...] = ("connector", "operation", "server")
 
     def __init__(self, env: RunTypeEnvironment, config_directory: Path) -> None:
         self._env = env
         self._config_directory = config_directory
 
     def read(self) -> ApplicationConfiguration:
-        config_root: Path = (
-            self._config_directory / f"{self.ROOT_CONFIG_FILE_NAME}.{self.FILE_EXTENSION}"
+        environment_directory: Path = self._config_directory / self._env.value
+        tree = OmegaTreeReader(
+            self._config_directory / f"{self.ROOT_CONFIG_FILE_NAME}.{FILE_EXTENSION}",
+            [environment_directory / folder for folder in self.FOLDERS],
         )
-        config_dir_env = self._config_directory / f"{self._env.value}"
-
-        omega_config: DictConfig = self._omega_read(config_dir_env, config_root)
-        omega_container: Any = OmegaConf.to_container(
-            omega_config.application_configuration, resolve=True, throw_on_missing=True
-        )
-        app_config_schema = ApplicationConfigurationSchema(**omega_container)
-        return MapperDomainSchema.map(app_config_schema)
-
-    def _omega_read(self, config_dir_env: Path, config_root: Path) -> DictConfig:
-        return cast(
-            DictConfig,
-            OmegaConf.merge(
-                *self._load_yml_dir(config_dir_env / self.CONNECTOR_CONFIG_FILE_NAME),
-                *self._load_yml_dir(config_dir_env / self.OPERATION_CONFIG_FILE_NAME),
-                *self._load_yml_dir(config_dir_env / self.SERVER_CONFIG_FILE_NAME),
-                OmegaConf.load(config_root),
-            ),
-        )
-
-    def _load_yml_dir(self, directory: Path) -> list:
-        return [OmegaConf.load(f) for f in sorted(directory.glob(f"*.{self.FILE_EXTENSION}"))]
+        schema = ApplicationConfigurationSchema(**tree.read(self.ROOT_KEY))
+        return MapperDomainSchema.map(schema)

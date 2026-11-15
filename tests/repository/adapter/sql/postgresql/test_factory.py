@@ -11,9 +11,10 @@ def make_settings(**overrides) -> PostgresConnector:
     defaults = dict(
         host="localhost",
         port=5432,
-        default_name="main",
+        database="main",
         user="user",
         password="secret",
+        connect_timeout=5,
         min_pool_size=1,
         max_pool_size=3,
     )
@@ -48,9 +49,7 @@ async def test_connection_opens_and_memoizes_client():
 @pytest.mark.asyncio
 async def test_connection_builds_conninfo_from_settings():
     factory = PostgresRepositoryFactory(
-        make_settings(
-            host="db.internal", port=6543, default_name="app", user="alice", password="pw"
-        )
+        make_settings(host="db.internal", port=6543, database="app", user="alice", password="pw")
     )
 
     with patch(
@@ -65,6 +64,7 @@ async def test_connection_builds_conninfo_from_settings():
     assert "port=6543" in conninfo
     assert "dbname=app" in conninfo
     assert "user=alice" in conninfo
+    assert "connect_timeout=5" in conninfo
 
 
 @pytest.mark.asyncio

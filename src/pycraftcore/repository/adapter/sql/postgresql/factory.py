@@ -47,7 +47,8 @@ class PostgresRepositoryFactory:
         return make_conninfo(
             host=self._settings.host,
             port=self._settings.port,
-            dbname=self._settings.default_name,
+            dbname=self._settings.database,
             user=self._settings.user,
             password=self._settings.password,
+            connect_timeout=self._settings.connect_timeout,
         )

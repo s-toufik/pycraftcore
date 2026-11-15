@@ -16,7 +16,7 @@ def test_mongo_repository_factory_satisfies_async_repository_factory():
     settings = MongoConnector(
         host="localhost",
         port=27017,
-        default_name="main",
+        database="main",
         username=None,
         password=None,
         server_selection_timeout_ms=5000,

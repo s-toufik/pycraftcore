@@ -16,9 +16,10 @@ def test_postgres_repository_factory_satisfies_async_repository_factory():
     settings = PostgresConnector(
         host="localhost",
         port=5432,
-        default_name="main",
+        database="main",
         user=None,
         password=None,
+        connect_timeout=5,
         min_pool_size=1,
         max_pool_size=1,
     )

@@ -1,70 +1,49 @@
 from pycraftcore.application_configuration.enum.connector_type import ConnectorType
+from pycraftcore.application_configuration.enum.operation_type import OperationType
 from pycraftcore.application_configuration.model.connector import DatabaseConnector
+from pycraftcore.application_configuration.model.operation import DatabaseOperation
 from pycraftcore.authentication.model.auth_type import AuthType
 from pycraftcore.authentication.model.basic_auth import BasicAuth
 from pycraftcore.authentication.model.no_auth import NoAuth
 from pycraftcore.repository.adapter.no_sql.mongodb.mapper import MongoSettingsMapper
 
 
-def make_connector(auth, pool: dict) -> DatabaseConnector:
-    return DatabaseConnector(
+def make_operation(auth=None, timeout: int = 5) -> DatabaseOperation:
+    connector = DatabaseConnector(
         name="db",
         type=ConnectorType.database,
-        auth=auth,
+        auth=auth or NoAuth(type=AuthType.none),
         engine="mongodb",
         host="db.internal",
         port=27017,
-        default_name="app",
-        pool=pool,
+        timeout=timeout,
+    )
+    return DatabaseOperation(
+        name="events", type=OperationType.database, connector=connector, database="app"
     )
 
 
-def test_maps_host_port_and_default_name():
-    connector = make_connector(NoAuth(type=AuthType.none), pool={})
-    mapper = MongoSettingsMapper(connector)
+def test_the_connection_comes_from_the_connector_and_the_database_from_the_operation():
+    settings = MongoSettingsMapper(make_operation())()
 
-    settings = mapper()
-
-    assert settings.host == "db.internal"
-    assert settings.port == 27017
-    assert settings.default_name == "app"
+    assert (settings.host, settings.port, settings.database) == ("db.internal", 27017, "app")
 
 
 def test_maps_basic_auth_credentials():
-    connector = make_connector(
-        BasicAuth(username="alice", password="secret", type=AuthType.basic), pool={}
-    )
-    mapper = MongoSettingsMapper(connector)
+    auth = BasicAuth(username="alice", password="secret", type=AuthType.basic)
 
-    settings = mapper()
+    settings = MongoSettingsMapper(make_operation(auth))()
 
-    assert settings.username == "alice"
-    assert settings.password == "secret"
+    assert (settings.username, settings.password) == ("alice", "secret")
 
 
 def test_defaults_credentials_to_none_when_auth_has_no_username_or_password():
-    connector = make_connector(NoAuth(type=AuthType.none), pool={})
-    mapper = MongoSettingsMapper(connector)
+    settings = MongoSettingsMapper(make_operation())()
 
-    settings = mapper()
-
-    assert settings.username is None
-    assert settings.password is None
+    assert (settings.username, settings.password) == (None, None)
 
 
-def test_maps_pool_timeout_ms_to_server_selection_timeout_ms():
-    connector = make_connector(NoAuth(type=AuthType.none), pool={"timeout_ms": 10000})
-    mapper = MongoSettingsMapper(connector)
+def test_the_connector_timeout_in_seconds_is_the_server_selection_timeout_in_ms():
+    settings = MongoSettingsMapper(make_operation(timeout=3))()
 
-    settings = mapper()
-
-    assert settings.server_selection_timeout_ms == 10000
-
-
-def test_defaults_server_selection_timeout_ms_when_missing():
-    connector = make_connector(NoAuth(type=AuthType.none), pool={})
-    mapper = MongoSettingsMapper(connector)
-
-    settings = mapper()
-
-    assert settings.server_selection_timeout_ms == 5000
+    assert settings.server_selection_timeout_ms == 3000

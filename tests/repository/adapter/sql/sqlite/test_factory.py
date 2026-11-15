@@ -16,7 +16,7 @@ def make_fake_client() -> MagicMock:
 @pytest.mark.asyncio
 async def test_connection_creates_directory_and_memoizes_client(tmp_path):
     db_dir = tmp_path / "data"
-    settings = SqliteConnector(path=str(db_dir), default_name="main", max_pool_size=1)
+    settings = SqliteConnector(path=str(db_dir), database="main", max_pool_size=1)
     factory = SqliteRepositoryFactory(settings)
     fake_client = make_fake_client()
 
@@ -36,7 +36,7 @@ async def test_connection_creates_directory_and_memoizes_client(tmp_path):
 
 @pytest.mark.asyncio
 async def test_connection_applies_wal_and_busy_timeout_pragmas(tmp_path):
-    settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=1)
+    settings = SqliteConnector(path=str(tmp_path), database="main", max_pool_size=1)
     factory = SqliteRepositoryFactory(settings)
     fake_client = make_fake_client()
 
@@ -54,7 +54,7 @@ async def test_connection_applies_wal_and_busy_timeout_pragmas(tmp_path):
 
 @pytest.mark.asyncio
 async def test_connection_does_not_create_directory_when_it_already_exists(tmp_path):
-    settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=1)
+    settings = SqliteConnector(path=str(tmp_path), database="main", max_pool_size=1)
     factory = SqliteRepositoryFactory(settings)
 
     with patch(
@@ -68,7 +68,7 @@ async def test_connection_does_not_create_directory_when_it_already_exists(tmp_p
 
 @pytest.mark.asyncio
 async def test_connect_returns_repository_backed_by_a_connection_pool(tmp_path):
-    settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=3)
+    settings = SqliteConnector(path=str(tmp_path), database="main", max_pool_size=3)
     factory = SqliteRepositoryFactory(settings)
 
     with patch(
@@ -85,7 +85,7 @@ async def test_connect_returns_repository_backed_by_a_connection_pool(tmp_path):
 
 @pytest.mark.asyncio
 async def test_connect_and_connection_use_independent_underlying_resources(tmp_path):
-    settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=2)
+    settings = SqliteConnector(path=str(tmp_path), database="main", max_pool_size=2)
     factory = SqliteRepositoryFactory(settings)
 
     with patch(
@@ -102,7 +102,7 @@ async def test_connect_and_connection_use_independent_underlying_resources(tmp_p
 
 @pytest.mark.asyncio
 async def test_disconnect_closes_client_and_pool_and_is_idempotent(tmp_path):
-    settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=2)
+    settings = SqliteConnector(path=str(tmp_path), database="main", max_pool_size=2)
     factory = SqliteRepositoryFactory(settings)
     clients = [make_fake_client(), make_fake_client(), make_fake_client()]
 
@@ -124,7 +124,7 @@ async def test_disconnect_closes_client_and_pool_and_is_idempotent(tmp_path):
 
 @pytest.mark.asyncio
 async def test_disconnect_without_prior_connection_is_a_no_op(tmp_path):
-    settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=1)
+    settings = SqliteConnector(path=str(tmp_path), database="main", max_pool_size=1)
     factory = SqliteRepositoryFactory(settings)
 
     await factory.disconnect()

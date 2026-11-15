@@ -13,7 +13,7 @@ def test_sqlite_repository_satisfies_async_repository():
 
 
 def test_sqlite_repository_factory_satisfies_async_repository_factory(tmp_path):
-    settings = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=1)
+    settings = SqliteConnector(path=str(tmp_path), database="main", max_pool_size=1)
     factory: AsyncRepositoryFactory = SqliteRepositoryFactory(settings)
 
     assert isinstance(factory, AsyncRepositoryFactory)

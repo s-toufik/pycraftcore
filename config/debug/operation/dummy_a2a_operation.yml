@@ -1,0 +1,7 @@
+operation:
+  dummy_a2a_op:
+    name: ask_agent
+    type: a2a
+    connector: ${connector.agent}
+    parameters:
+      skill: homelab-assistant

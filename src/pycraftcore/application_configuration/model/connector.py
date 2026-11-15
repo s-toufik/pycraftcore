@@ -1,6 +1,8 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Literal, overload
+from typing import ClassVar, Literal, overload
+
+from pydantic import ConfigDict
 
 from pycraftcore.application_configuration.enum.connector_type import ConnectorType
 from pycraftcore.authentication import AuthTyping
@@ -21,13 +23,35 @@ class ApiConnector(BaseConnector):
     certificate: str | None = field(default=None)
 
 
+@dataclass(frozen=True, slots=True)
+class DatabasePool:
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    min: int = 1
+    max: int = 1
+
+    def __post_init__(self) -> None:
+        if self.min < 0:
+            raise ValueError("pool min must be 0 or more")
+        if self.max < 1:
+            raise ValueError("pool max must be 1 or more")
+        if self.max < self.min:
+            raise ValueError("pool max must be greater than or equal to min")
+
+
 @dataclass(slots=True)
 class DatabaseConnector(BaseConnector):
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
     engine: str
     host: str
     port: int
-    default_name: str
-    pool: dict[str, int]
+    timeout: int = 5
+    pool: DatabasePool = field(default_factory=DatabasePool)
+
+    def __post_init__(self) -> None:
+        if self.timeout <= 0:
+            raise ValueError("database timeout must be greater than 0")
 
 
 @dataclass(slots=True)
@@ -65,8 +89,21 @@ class McpConnector(BaseConnector):
     refresh: McpRefresh = field(default_factory=McpRefresh)
 
 
+@dataclass(slots=True)
+class A2aConnector(BaseConnector):
+    base_url: str
+    timeout: int
+    binding: Literal["JSONRPC", "HTTP+JSON", "GRPC"] = "JSONRPC"
+    certificate: str | None = field(default=None)
+
+
 ConnectorTyping = (
-    ApiConnector | FileConnector | DatabaseConnector | TelemetryConnector | McpConnector
+    ApiConnector
+    | FileConnector
+    | DatabaseConnector
+    | TelemetryConnector
+    | McpConnector
+    | A2aConnector
 )
 
 _CONNECTOR_CLASS_BY_TYPE: dict[ConnectorType, type[ConnectorTyping]] = {
@@ -75,6 +112,7 @@ _CONNECTOR_CLASS_BY_TYPE: dict[ConnectorType, type[ConnectorTyping]] = {
     ConnectorType.file: FileConnector,
     ConnectorType.telemetry: TelemetryConnector,
     ConnectorType.mcp: McpConnector,
+    ConnectorType.a2a: A2aConnector,
 }
 
 
@@ -108,6 +146,8 @@ class ConnectorRegistry:
     ) -> Mapping[str, TelemetryConnector]: ...
     @overload
     def __getitem__(self, kind: Literal[ConnectorType.mcp]) -> Mapping[str, McpConnector]: ...
+    @overload
+    def __getitem__(self, kind: Literal[ConnectorType.a2a]) -> Mapping[str, A2aConnector]: ...
 
     def __getitem__(self, kind: ConnectorType) -> Mapping[str, ConnectorTyping]:
         return self.by_type.get(kind, {})
@@ -126,6 +166,9 @@ class ConnectorRegistry:
 
     def mcp(self, name: str) -> McpConnector:
         return self._get(ConnectorType.mcp, name, McpConnector)
+
+    def a2a(self, name: str) -> A2aConnector:
+        return self._get(ConnectorType.a2a, name, A2aConnector)
 
     def _get[T: ConnectorTyping](self, kind: ConnectorType, name: str, expected: type[T]) -> T:
         try:

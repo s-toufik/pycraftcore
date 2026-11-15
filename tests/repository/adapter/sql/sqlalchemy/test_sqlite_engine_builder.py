@@ -8,7 +8,7 @@ from pycraftcore.repository.adapter.sql.sqlite.schema import SqliteConnector
 
 def make_builder(directory, max_pool_size: int = 2) -> SqliteEngineBuilder:
     return SqliteEngineBuilder(
-        SqliteConnector(path=str(directory), default_name="main", max_pool_size=max_pool_size)
+        SqliteConnector(path=str(directory), database="main", max_pool_size=max_pool_size)
     )
 
 
