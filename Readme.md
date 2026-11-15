@@ -81,7 +81,7 @@ Each module stands on its own: use the ones you need. The modules today (new one
 | `web_litestar`, `web_fastapi`, `web_blacksheep` | One toolkit per framework: build the app with pycraftcore's conventions and write your routes with the framework's own features |
 | `resilient_http` | An HTTP transport with retries and a circuit breaker built in |
 | `retry`, `circuit_breaker` | The two policies on their own, for any async call |
-| `repository` | Async repositories built from a database connector — today SQLite (pooled), PostgreSQL, MongoDB, and SQLAlchemy (PostgreSQL or SQLite, for libraries that need an engine) |
+| `repository` | Async repositories built from a database connector — today SQLite (pooled), PostgreSQL, MongoDB (with TTL indexes kept to a set expiry), and SQLAlchemy (PostgreSQL or SQLite, for libraries that need an engine) |
 | `query_language` | Checks that a SQL statement is read-only, and translates between dialects, before it reaches a database |
 | `runtime` | Runs untrusted Python in a separate process with memory, time and module limits; optionally lets it call your functions |
 | `file_handler` | Read and write files by extension (today csv, json, yml, md, txt, svg); a new format is a new reader/writer pair |
@@ -96,8 +96,8 @@ A service's configuration is a folder of YAML files, with values taken from envi
 | Path | What it holds |
 |---|---|
 | `root.yml` | The environment, the log level and the list of connectors, operations and servers in use |
-| `<env>/connector/*.yml` | Where things are: APIs, databases, files, MCP servers, telemetry |
-| `<env>/operation/*.yml` | What you do with them; each operation points at a connector |
+| `<env>/connector/*.yml` | Where things are and how to reach them: APIs, databases, files, MCP servers, A2A agents, telemetry |
+| `<env>/operation/*.yml` | What you do with them: which database, tables and TTL, which endpoint, which parameters; each operation points at a connector |
 | `<env>/server/*.yml` | How the service itself is served: base path, API documentation, CORS origins, and your own `parameters` |
 
 ```yaml
@@ -126,6 +126,72 @@ operation:
     method: GET
     parameters:
       days: 3
+```
+
+A connector holds only what every operation needs to reach the system; an operation holds what one use does there. Databases follow the same split:
+
+```yaml
+# <env>/connector/database.yml
+connector:
+  postgresql:
+    name: postgresql
+    type: database
+    engine: postgresql
+    host: ${oc.env:DB_HOST}
+    port: 5432
+    timeout: 5          # seconds to reach the server
+    pool:
+      min: 1
+      max: 10
+    auth:
+      type: basic
+      username: ${oc.env:DB_USER}
+      password: ${oc.env:DB_PASSWORD}
+```
+
+```yaml
+# <env>/operation/database.yml
+operation:
+  orders:
+    name: orders
+    type: database
+    connector: ${connector.postgresql}
+    database: shop
+    collections:        # role → name: tables in SQL, collections in MongoDB
+      orders: orders
+      events: order_events
+    ttl: 604800         # seconds the data is kept, for the code that enforces it
+```
+
+| Goes in the connector | Goes in the operation |
+|---|---|
+| `engine`, `host`, `port`, `auth` | `database`: the database, the SQLite file name or the MongoDB database |
+| `timeout`: how long to wait to reach the server (default 5 s) | `collections`: the tables or collections it uses, by role (`operation.collection("events")`) |
+| `pool`: `min` and `max` connections only (default 1 and 1) | `ttl`: how long its data is kept (seconds, optional) |
+| | `parameters`: anything else, passed through |
+
+A database connector, its pool and a database operation refuse keys they don't know, so a misplaced setting fails at load with its path (`connector.database.postgresql.database.pool.ttl`) instead of being ignored.
+
+An A2A connector describes an A2A agent's endpoint, whether the service calls it or serves it; an A2A operation holds what one use of it needs:
+
+```yaml
+connector:
+  agent:
+    name: agent
+    type: a2a
+    base_url: http://<agent-host>:8000/a2a
+    timeout: 60
+    binding: JSONRPC    # or HTTP+JSON, GRPC
+    auth:
+      type: none
+
+operation:
+  ask_agent:
+    name: ask_agent
+    type: a2a
+    connector: ${connector.agent}
+    parameters:
+      skill: homelab-assistant
 ```
 
 ```yaml
@@ -175,13 +241,42 @@ operation = config.operation.api("forecast")  # ApiOperation
 server = config.server.asgi("weather-api")  # AsgiServer
 ```
 
-`config.connector` returns typed connectors per kind (`.api()`, `.database()`, `.file()`, `.mcp()`, `.telemetry()`), `config.operation` typed operations (`.api()`, `.file()`) and `config.server` typed servers (`.asgi()`); the `type` field of each entry decides which fields it takes.
+`config.connector` returns typed connectors per kind (`.api()`, `.database()`, `.file()`, `.mcp()`, `.a2a()`, `.telemetry()`), `config.operation` typed operations (`.api()`, `.file()`, `.mcp()`, `.a2a()`, `.database()`) and `config.server` typed servers (`.asgi()`); the `type` field of each entry decides which fields it takes.
 
 - `log` is a `LogLevel` (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`, upper case): pass it to `configure_logging(config.log)`.
 - A server holds `base_path`, `docs` and `cors_origins`: turn them into the web toolkit's `ApiSettings` (see [Serving an HTTP API](#serving-an-http-api)). Which framework serves the API is a choice made in code, not in the configuration.
 - An MCP connector can hold a `refresh` block for clients that re-read the server's tools in the background: `interval` (seconds between reads while it answers, default 60), `retry_delay` (the first wait after a failure, default 5, doubled each time) and `max_retry_delay` (the longest wait, default 60). Leave it out to keep the defaults.
 - `parameters` is yours: pycraftcore passes it through untouched. `oc.env` always gives strings, so convert the values where you read them.
 - `log` and `server` are required, like `connector` and `operation`. A service that serves no HTTP API writes `server: {}`.
+
+#### Reading another YAML tree
+
+`OmegaTreeReader` is the loading the configuration uses, for any other tree of YAML files: a root file, folders whose `*.yml` files are merged under it (in name order, the root file last so it wins), and `${oc.env:…}` and `${…}` references resolved.
+
+```python
+from pathlib import Path
+
+from pycraftcore.application_configuration.adapter import OmegaTreeReader
+
+agent = Path("agents/chat")
+tree = OmegaTreeReader(agent / "agent.yml", [agent / "skills"]).read("agent")  # a dict
+```
+
+- `read(key)` returns the section under `key` as plain data, to validate with your own pydantic model.
+- A missing root file, a missing key, a key that isn't a mapping or an environment variable that isn't set raises at once, with the file or the key in the message.
+- A folder that doesn't exist counts as no files.
+
+#### Upgrading from 5.x
+
+6.0.0 moves what a database connector held for one use into a database operation:
+
+1. Move `default_name` from each database connector to a new `type: database` operation, as `database`.
+2. Move `pool.timeout_ms` to the connector's `timeout`, in seconds (`3000` → `3`).
+3. Move `pool.ttl` to the operation's `ttl`, and collection or table names to its `collections`.
+4. List the operations in `root.yml`, and build settings mappers from `config.operation.database(name)` instead of `config.connector.database(name)`.
+5. The settings models' `default_name` is now `database`; `PostgresConnector` also takes `connect_timeout`.
+
+A 5.x connector fails to load and names the key to move.
 
 ### Logging and the request id
 
@@ -322,7 +417,7 @@ Repositories are built from a database connector and share one interface, `Async
 ```python
 from pycraftcore.repository.adapter import SqliteRepositoryFactory, SqliteSettingsMapper
 
-factory = SqliteRepositoryFactory(SqliteSettingsMapper(config.connector.database("users"))())
+factory = SqliteRepositoryFactory(SqliteSettingsMapper(config.operation.database("users"))())
 repository = await factory.connect()
 rows = await repository.execute("SELECT id, email FROM users LIMIT 10")
 await factory.disconnect()
@@ -330,7 +425,31 @@ await factory.disconnect()
 
 `PostgresRepositoryFactory` / `PostgresSettingsMapper` and `MongoRepositoryFactory` / `MongoSettingsMapper` work the same way, and so will any database added later: a factory, a settings mapper and a repository behind the same `AsyncRepository` port.
 
+A settings mapper takes a database operation: the connection comes from its connector (host, port, credentials, `timeout`, `pool`), the database from the operation. PostgreSQL gives up connecting after `timeout` seconds; MongoDB waits that long to find the server. MongoDB's client keeps its own pool, so `pool` doesn't apply to it.
+
 Every factory has three methods: `connect()` gives the `AsyncRepository`, `connection()` gives the driver's own client, and `disconnect()` closes both. Use `connection()` to hand the database to a library that brings its own code, such as LangGraph's checkpointers (`MongoClient`, an aiosqlite connection).
+
+#### MongoDB TTL indexes
+
+A TTL index makes MongoDB delete each document a set time after the date in one of its fields. MongoDB refuses to create the same index again with another expiry, so a changed retention would otherwise mean dropping the index by hand. `MongoTtlIndex` takes the field and the expiry, and `ensure(collection)` makes the collection match:
+
+```python
+from pycraftcore.repository.adapter import MongoTtlIndex, TtlIndexChange
+
+client = await factory.connection()  # a MongoRepositoryFactory
+change = await MongoTtlIndex("created_at", 604800).ensure(client["app"]["events"])
+```
+
+| The collection has | `ensure` | Returns |
+|---|---|---|
+| no single-field index on the field | creates it, with the expiry | `TtlIndexChange.CREATED` |
+| one with the same expiry | does nothing | `TtlIndexChange.UNCHANGED` |
+| one with another expiry, or none (a plain index) | changes it in place with `collMod`: no rebuild, the documents stay | `TtlIndexChange.UPDATED` |
+
+- Run it before a library that creates its own TTL index (LangGraph's `MongoDBSaver` with `ttl`): the library then finds the index as it wants it and leaves it alone.
+- Changing an index needs the `collMod` action (the `dbAdmin` role, or root); creating one needs `createIndex` (`readWrite`).
+- The expiry is checked when the object is built: 0 to 2147483647 seconds, as MongoDB accepts.
+- A compound index that starts with the field isn't a TTL index, so it's not taken for one.
 
 #### SQLAlchemy
 
@@ -345,19 +464,19 @@ from pycraftcore.repository.adapter import (
     SqliteSettingsMapper,
 )
 
-postgres = PostgresEngineBuilder(PostgresSettingsMapper(config.connector.database("tasks"))())
-sqlite = SqliteEngineBuilder(SqliteSettingsMapper(config.connector.database("tasks_fallback"))())
+postgres = PostgresEngineBuilder(PostgresSettingsMapper(config.operation.database("tasks"))())
+sqlite = SqliteEngineBuilder(SqliteSettingsMapper(config.operation.database("tasks_fallback"))())
 
-factory = SqlAlchemyRepositoryFactory(postgres)   # or sqlite: same factory
-await factory.ping()                              # raises when the database can't be reached
-engine = await factory.connection()               # an AsyncEngine, for the library
-await factory.disconnect()                        # disposes the engine
+factory = SqlAlchemyRepositoryFactory(postgres)  # or sqlite: same factory
+await factory.ping()  # raises when the database can't be reached
+engine = await factory.connection()  # an AsyncEngine, for the library
+await factory.disconnect()  # disposes the engine
 ```
 
 | Builder | Settings | Engine |
 |---|---|---|
-| `PostgresEngineBuilder` | `PostgresConnector` | `postgresql+psycopg`, a pool of `pool.max` connections checked before use (`pool_pre_ping`), so a database restart doesn't leave dead connections |
-| `SqliteEngineBuilder` | `SqliteConnector` | `sqlite+aiosqlite` on the file `SqliteDatabaseFile` prepares (`<host>/<default_name>.db`, folder created); every connection it opens gets the same PRAGMAs as `SqliteRepositoryFactory` (WAL, a 5-second busy timeout, `synchronous=NORMAL`) |
+| `PostgresEngineBuilder` | `PostgresConnector` | `postgresql+psycopg`, a pool of `pool.max` connections checked before use (`pool_pre_ping`), so a database restart doesn't leave dead connections, and the connector's `timeout` as connect timeout |
+| `SqliteEngineBuilder` | `SqliteConnector` | `sqlite+aiosqlite` on the file `SqliteDatabaseFile` prepares (`<connector host>/<operation database>.db`, folder created); every connection it opens gets the same PRAGMAs as `SqliteRepositoryFactory` (WAL, a 5-second busy timeout, `synchronous=NORMAL`) |
 
 - Both builders use the drivers the other adapters use, so there's no other driver to install.
 - Another database is another class with a `build() -> AsyncEngine` method (the `SqlAlchemyEngineBuilder` protocol); the factory doesn't change.

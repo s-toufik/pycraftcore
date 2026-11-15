@@ -24,7 +24,7 @@ class MongoRepositoryFactory:
     async def connect(self) -> AsyncRepository:
         if self._repository is None:
             client = await self.connection()
-            self._repository = MongoRepository(client, self._settings.default_name)
+            self._repository = MongoRepository(client, self._settings.database)
         return self._repository
 
     async def disconnect(self) -> None:

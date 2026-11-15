@@ -28,13 +28,14 @@ def test_both_engine_builders_satisfy_the_engine_builder_port(tmp_path):
     postgres = PostgresConnector(
         host="localhost",
         port=5432,
-        default_name="main",
+        database="main",
         user=None,
         password=None,
+        connect_timeout=5,
         min_pool_size=1,
         max_pool_size=1,
     )
-    sqlite = SqliteConnector(path=str(tmp_path), default_name="main", max_pool_size=1)
+    sqlite = SqliteConnector(path=str(tmp_path), database="main", max_pool_size=1)
     builders: list[SqlAlchemyEngineBuilder] = [
         PostgresEngineBuilder(postgres),
         SqliteEngineBuilder(sqlite),

@@ -2,9 +2,11 @@ import pytest
 
 from pycraftcore.application_configuration.enum.connector_type import ConnectorType
 from pycraftcore.application_configuration.model.connector import (
+    A2aConnector,
     ApiConnector,
     ConnectorRegistry,
     DatabaseConnector,
+    DatabasePool,
     FileConnector,
     McpConnector,
     McpRefresh,
@@ -27,19 +29,59 @@ def test_api_connector_defaults_certificate_to_none():
     assert connector.certificate is None
 
 
-def test_database_connector_holds_pool_settings():
-    connector = DatabaseConnector(
+def make_database_connector(**overrides) -> DatabaseConnector:
+    values = dict(
         name="db",
         type=ConnectorType.database,
         auth=NoAuth(type=AuthType.none),
         engine="sqlite",
         host="/var/data",
         port=0,
-        default_name="main",
-        pool={"max": 4},
+    )
+    values.update(overrides)
+    return DatabaseConnector(**values)
+
+
+def test_a_database_connector_waits_5_seconds_with_a_pool_of_one_by_default():
+    connector = make_database_connector()
+
+    assert connector.timeout == 5
+    assert connector.pool == DatabasePool(min=1, max=1)
+
+
+def test_a_database_connector_holds_its_pool():
+    assert make_database_connector(pool=DatabasePool(min=2, max=4)).pool.max == 4
+
+
+@pytest.mark.parametrize(
+    ("pool", "message"),
+    [
+        ({"min": -1}, "min must be 0 or more"),
+        ({"max": 0}, "max must be 1 or more"),
+        ({"min": 3, "max": 2}, "greater than or equal to min"),
+    ],
+)
+def test_a_pool_that_cannot_work_is_refused(pool, message):
+    with pytest.raises(ValueError, match=message):
+        DatabasePool(**pool)
+
+
+def test_a_database_timeout_must_be_positive():
+    with pytest.raises(ValueError, match="timeout must be greater than 0"):
+        make_database_connector(timeout=0)
+
+
+def test_an_a2a_connector_speaks_json_rpc_by_default():
+    connector = A2aConnector(
+        name="agent",
+        type=ConnectorType.a2a,
+        auth=NoAuth(type=AuthType.none),
+        base_url="http://agent:8000/a2a",
+        timeout=60,
     )
 
-    assert connector.pool == {"max": 4}
+    assert connector.binding == "JSONRPC"
+    assert connector.certificate is None
 
 
 def test_file_connector_holds_base_path():
@@ -92,26 +134,13 @@ def test_mcp_connector_accepts_sse_transport():
     assert connector.transport == "sse"
 
 
-def make_database_connector(name: str = "db") -> DatabaseConnector:
-    return DatabaseConnector(
-        name=name,
-        type=ConnectorType.database,
-        auth=NoAuth(type=AuthType.none),
-        engine="sqlite",
-        host="/var/data",
-        port=0,
-        default_name="main",
-        pool={"max": 4},
-    )
-
-
 def test_registry_returns_the_typed_connector_by_name():
     registry = ConnectorRegistry({ConnectorType.database: {"db": make_database_connector()}})
 
     connector = registry.database("db")
 
     assert isinstance(connector, DatabaseConnector)
-    assert connector.default_name == "main"
+    assert connector.engine == "sqlite"
 
 
 def test_registry_getitem_returns_the_bucket_for_a_type():
@@ -120,6 +149,20 @@ def test_registry_getitem_returns_the_bucket_for_a_type():
 
     assert registry[ConnectorType.database] == {"db": connector}
     assert registry[ConnectorType.api] == {}
+
+
+def test_registry_returns_the_typed_a2a_connector_by_name():
+    connector = A2aConnector(
+        name="agent",
+        type=ConnectorType.a2a,
+        auth=NoAuth(type=AuthType.none),
+        base_url="http://agent/a2a",
+        timeout=60,
+    )
+    registry = ConnectorRegistry({ConnectorType.a2a: {"agent": connector}})
+
+    assert registry.a2a("agent") is connector
+    assert registry[ConnectorType.a2a] == {"agent": connector}
 
 
 def test_registry_returns_the_typed_mcp_connector_by_name():

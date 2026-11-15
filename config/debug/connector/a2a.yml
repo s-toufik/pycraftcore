@@ -1,0 +1,9 @@
+connector:
+  agent:
+    name: agent
+    type: a2a
+    base_url: http://localhost:8000/a2a
+    timeout: 60
+    binding: JSONRPC
+    auth:
+      type: none

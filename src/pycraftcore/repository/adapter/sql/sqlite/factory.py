@@ -12,7 +12,7 @@ from pycraftcore.repository.adapter.sql.sqlite.schema import SqliteConnector
 class SqliteRepositoryFactory:
     def __init__(self, settings: SqliteConnector):
         self._settings = settings
-        self._file = SqliteDatabaseFile(settings.path, settings.default_name)
+        self._file = SqliteDatabaseFile(settings.path, settings.database)
         self._client: Connection | None = None
         self._pool: list[Connection] | None = None
         self._repository: AsyncRepository | None = None

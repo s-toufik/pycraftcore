@@ -1,72 +1,64 @@
 from pycraftcore.application_configuration.enum.connector_type import ConnectorType
-from pycraftcore.application_configuration.model.connector import DatabaseConnector
+from pycraftcore.application_configuration.enum.operation_type import OperationType
+from pycraftcore.application_configuration.model.connector import DatabaseConnector, DatabasePool
+from pycraftcore.application_configuration.model.operation import DatabaseOperation
 from pycraftcore.authentication.model.auth_type import AuthType
 from pycraftcore.authentication.model.basic_auth import BasicAuth
 from pycraftcore.authentication.model.no_auth import NoAuth
 from pycraftcore.repository.adapter.sql.postgresql.mapper import PostgresSettingsMapper
 
 
-def make_connector(auth, pool: dict) -> DatabaseConnector:
-    return DatabaseConnector(
+def make_operation(
+    auth=None, pool: DatabasePool | None = None, timeout: int = 5
+) -> DatabaseOperation:
+    connector = DatabaseConnector(
         name="db",
         type=ConnectorType.database,
-        auth=auth,
+        auth=auth or NoAuth(type=AuthType.none),
         engine="postgresql",
         host="db.internal",
         port=5432,
-        default_name="app",
-        pool=pool,
+        timeout=timeout,
+        pool=pool or DatabasePool(),
+    )
+    return DatabaseOperation(
+        name="orders", type=OperationType.database, connector=connector, database="app"
     )
 
 
-def test_maps_host_port_and_default_name():
-    connector = make_connector(NoAuth(type=AuthType.none), pool={})
-    mapper = PostgresSettingsMapper(connector)
+def test_the_connection_comes_from_the_connector_and_the_database_from_the_operation():
+    settings = PostgresSettingsMapper(make_operation())()
 
-    settings = mapper()
-
-    assert settings.host == "db.internal"
-    assert settings.port == 5432
-    assert settings.default_name == "app"
+    assert (settings.host, settings.port, settings.database) == ("db.internal", 5432, "app")
 
 
 def test_maps_basic_auth_credentials():
-    connector = make_connector(
-        BasicAuth(username="alice", password="secret", type=AuthType.basic), pool={}
-    )
-    mapper = PostgresSettingsMapper(connector)
+    auth = BasicAuth(username="alice", password="secret", type=AuthType.basic)
 
-    settings = mapper()
+    settings = PostgresSettingsMapper(make_operation(auth))()
 
-    assert settings.user == "alice"
-    assert settings.password == "secret"
+    assert (settings.user, settings.password) == ("alice", "secret")
 
 
 def test_defaults_credentials_to_none_when_auth_has_no_username_or_password():
-    connector = make_connector(NoAuth(type=AuthType.none), pool={})
-    mapper = PostgresSettingsMapper(connector)
+    settings = PostgresSettingsMapper(make_operation())()
 
-    settings = mapper()
-
-    assert settings.user is None
-    assert settings.password is None
+    assert (settings.user, settings.password) == (None, None)
 
 
-def test_maps_pool_min_and_max_to_pool_sizes():
-    connector = make_connector(NoAuth(type=AuthType.none), pool={"min": 2, "max": 8})
-    mapper = PostgresSettingsMapper(connector)
+def test_maps_the_pool_to_pool_sizes():
+    settings = PostgresSettingsMapper(make_operation(pool=DatabasePool(min=2, max=8)))()
 
-    settings = mapper()
-
-    assert settings.min_pool_size == 2
-    assert settings.max_pool_size == 8
+    assert (settings.min_pool_size, settings.max_pool_size) == (2, 8)
 
 
-def test_defaults_pool_sizes_to_one_when_missing():
-    connector = make_connector(NoAuth(type=AuthType.none), pool={})
-    mapper = PostgresSettingsMapper(connector)
+def test_the_default_pool_is_one_connection():
+    settings = PostgresSettingsMapper(make_operation())()
 
-    settings = mapper()
+    assert (settings.min_pool_size, settings.max_pool_size) == (1, 1)
 
-    assert settings.min_pool_size == 1
-    assert settings.max_pool_size == 1
+
+def test_the_connector_timeout_is_the_connect_timeout():
+    settings = PostgresSettingsMapper(make_operation(timeout=3))()
+
+    assert settings.connect_timeout == 3

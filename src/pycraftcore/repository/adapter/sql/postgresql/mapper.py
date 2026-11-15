@@ -1,19 +1,20 @@
-from pycraftcore.application_configuration.model.connector import DatabaseConnector
+from pycraftcore.application_configuration.model.operation import DatabaseOperation
 from pycraftcore.repository.adapter.sql.postgresql.schema import PostgresConnector
 
 
 class PostgresSettingsMapper:
-    def __init__(self, database_connector: DatabaseConnector) -> None:
-        self._database_connector = database_connector
+    def __init__(self, operation: DatabaseOperation) -> None:
+        self._operation = operation
 
     def __call__(self) -> PostgresConnector:
-
+        connector = self._operation.connector
         return PostgresConnector(
-            host=self._database_connector.host,
-            port=self._database_connector.port,
-            default_name=self._database_connector.default_name,
-            user=getattr(self._database_connector.auth, "username", None),
-            password=getattr(self._database_connector.auth, "password", None),
-            min_pool_size=self._database_connector.pool.get("min", 1),
-            max_pool_size=self._database_connector.pool.get("max", 1),
+            host=connector.host,
+            port=connector.port,
+            database=self._operation.database,
+            user=getattr(connector.auth, "username", None),
+            password=getattr(connector.auth, "password", None),
+            connect_timeout=connector.timeout,
+            min_pool_size=connector.pool.min,
+            max_pool_size=connector.pool.max,
         )

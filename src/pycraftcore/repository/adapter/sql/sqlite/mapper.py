@@ -1,14 +1,15 @@
-from pycraftcore.application_configuration.model.connector import DatabaseConnector
+from pycraftcore.application_configuration.model.operation import DatabaseOperation
 from pycraftcore.repository.adapter.sql.sqlite.schema import SqliteConnector
 
 
 class SqliteSettingsMapper:
-    def __init__(self, database_connector: DatabaseConnector):
-        self._database_connector = database_connector
+    def __init__(self, operation: DatabaseOperation) -> None:
+        self._operation = operation
 
     def __call__(self) -> SqliteConnector:
+        connector = self._operation.connector
         return SqliteConnector(
-            path=self._database_connector.host,
-            default_name=self._database_connector.default_name,
-            max_pool_size=self._database_connector.pool.get("max", 1),
+            path=connector.host,
+            database=self._operation.database,
+            max_pool_size=connector.pool.max,
         )
