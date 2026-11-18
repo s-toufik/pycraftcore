@@ -26,3 +26,21 @@ def test_read_returns_empty_list_for_empty_file(tmp_path):
     result = CsvFileReader.read(str(file_path))
 
     assert result == []
+
+
+def test_read_sniffs_a_semicolon_delimiter(tmp_path):
+    file_path = tmp_path / "data.csv"
+    file_path.write_text("name;value\ntest;42\n")
+
+    result = CsvFileReader.read(str(file_path))
+
+    assert result == [{"name": "test", "value": "42"}]
+
+
+def test_read_sniffs_a_tab_delimiter(tmp_path):
+    file_path = tmp_path / "data.csv"
+    file_path.write_text("name\tvalue\ntest\t42\n")
+
+    result = CsvFileReader.read(str(file_path))
+
+    assert result == [{"name": "test", "value": "42"}]

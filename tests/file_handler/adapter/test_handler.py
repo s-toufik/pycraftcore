@@ -40,6 +40,24 @@ def test_handler_round_trips_svg_data(tmp_path):
     assert result == svg
 
 
+def test_handler_round_trips_xlsx_data(tmp_path):
+    file_path = tmp_path / "data.xlsx"
+
+    Handler(str(file_path)).write([{"name": "test", "value": 42}])
+    result = Handler(str(file_path)).read()
+
+    assert result == [{"name": "test", "value": 42}]
+
+
+def test_handler_round_trips_parquet_data(tmp_path):
+    file_path = tmp_path / "data.parquet"
+
+    Handler(str(file_path)).write([{"name": "test", "value": 42}])
+    result = Handler(str(file_path)).read()
+
+    assert result == [{"name": "test", "value": 42}]
+
+
 def test_handler_raises_for_unsupported_extension(tmp_path):
     file_path = tmp_path / "config.foo"
     file_path.write_text("{}")

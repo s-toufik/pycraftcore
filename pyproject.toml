@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pycraftcore"
-version = "6.0.0"
+version = "6.1.0"
 authors = [
     { name = "Toufik Saouchi", email = "toufik.saouchi@gmail.com" },
 ]
@@ -35,7 +35,7 @@ profiler = ["pyinstrument"]
 query_language = ["sqlglot"]
 computation_engine = ["numpy", "scipy"]
 serializer = ["orjson", "msgpack", "pydantic>=2"]
-file_handler = ["orjson", "pyyaml"]
+file_handler = ["orjson", "pyyaml", "openpyxl", "xlrd", "pyarrow"]
 runtime = ["pydantic>=2"]
 web = ["pycraftcore[context]"]
 
@@ -84,6 +84,7 @@ dev = [
     "pytest-cov",
     "uvicorn",
     "asgi-lifespan",
+    "xlwt",
     "ruff",
     "ty",
     "scipy-stubs",

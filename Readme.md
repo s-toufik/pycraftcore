@@ -44,7 +44,7 @@ A bare `pycraftcore` installs no third-party packages: only `authentication`, `c
 | `query_language` | sqlglot | — |
 | `computation_engine` | numpy, scipy | — |
 | `serializer` | orjson, msgpack, pydantic | — |
-| `file_handler` | orjson, pyyaml | — |
+| `file_handler` | orjson, pyyaml, openpyxl, xlrd, pyarrow | — |
 | `runtime` | pydantic | — |
 | `runtime-sandbox` | pandas, numpy, matplotlib, python-dateutil | `runtime` |
 | `circuit_breaker` | aiobreaker | `logger` |
@@ -84,7 +84,7 @@ Each module stands on its own: use the ones you need. The modules today (new one
 | `repository` | Async repositories built from a database connector — today SQLite (pooled), PostgreSQL, MongoDB (with TTL indexes kept to a set expiry), and SQLAlchemy (PostgreSQL or SQLite, for libraries that need an engine) |
 | `query_language` | Checks that a SQL statement is read-only, and translates between dialects, before it reaches a database |
 | `runtime` | Runs untrusted Python in a separate process with memory, time and module limits; optionally lets it call your functions |
-| `file_handler` | Read and write files by extension (today csv, json, yml, md, txt, svg); a new format is a new reader/writer pair |
+| `file_handler` | Read and write files by extension (today csv, json, yml, md, txt, svg, xlsx, xls (read-only), parquet); a new format is a new reader/writer pair |
 | `serializer` | JSON, dict and binary (msgpack) serialisation of dataclasses |
 | `computation_engine` | Numerical helpers: financial arithmetic, integration, interpolation |
 | `profiler` | `@profiled`, an async profiling decorator |
