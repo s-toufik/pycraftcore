@@ -1,9 +1,7 @@
 import traceback
 from typing import ParamSpec
 
-from pycraftcore.application_configuration.model.configuration import (
-    ApplicationConfiguration,
-)
+from pycraftcore.application_configuration.model import ApplicationConfiguration
 from pycraftcore.application_configuration.port.configuration_reader import (
     ConfigurationReader,
 )

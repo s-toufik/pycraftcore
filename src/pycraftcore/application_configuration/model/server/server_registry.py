@@ -1,22 +1,8 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
 
 from pycraftcore.application_configuration.enum.server_type import ServerType
-
-
-@dataclass(slots=True)
-class BaseServer:
-    name: str
-    type: ServerType
-
-
-@dataclass(slots=True)
-class AsgiServer(BaseServer):
-    base_path: str = ""
-    docs: bool = False
-    cors_origins: list[str] = field(default_factory=list)
-    parameters: dict[str, Any] = field(default_factory=dict)
+from pycraftcore.application_configuration.model.server.asgi_server import AsgiServer
 
 
 @dataclass(frozen=True, slots=True)

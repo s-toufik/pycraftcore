@@ -194,6 +194,34 @@ operation:
       skill: homelab-assistant
 ```
 
+An MCP operation says which tools one use of an MCP server offers. Each entry in `tools` is either a tool name, or a tool published under a name of its own, built on another tool, with some of its arguments fixed:
+
+```yaml
+operation:
+  kitchen:
+    name: kitchen
+    type: mcp
+    connector: ${connector.tools}
+    prefix: kitchen                  # optional: put before the names of the server's tools
+    tools:
+      - python_executor              # a name (or a pattern, if your service reads it as one)
+      - name: recipes_find           # the name it is published under
+        tool: mongodb_find           # the tool it is built on
+        description: Find recipes.   # optional: replaces the tool's own description
+        arguments:                   # always sent with these values; the caller can't change them
+          database: kitchen
+          collection: recipes
+```
+
+`operation.listed_tools` gives the names, `operation.wrapped_tools` the `McpTool` entries, both in the order written. pycraftcore checks their shape:
+
+- `name`, `tool` and `prefix` are 1 to 128 letters, digits, `_`, `-` or `.`.
+- A listed entry is kept as written, since your service may read it as a pattern; a blank one, or one that starts or ends with spaces, is refused.
+- A name used twice in one operation, listed or wrapped, is refused. A wrapped tool may keep the name of the tool it is built on.
+- An MCP operation and its tools refuse keys they don't know, with the path in the message (`operation.kitchen.mcp.tools.1.wrapper.args`).
+
+Which tools `tool` can name, and whether a listed name is read as a pattern, is up to your service. Fixed `arguments` are sent as written; a value from `oc.env` is a string, so wrap it in `oc.decode` for a number or a boolean: `limit: ${oc.decode:${oc.env:KITCHEN_LIMIT,20}}`.
+
 ```yaml
 # <env>/server/asgi.yml
 server:
@@ -265,6 +293,16 @@ tree = OmegaTreeReader(agent / "agent.yml", [agent / "skills"]).read("agent")  #
 - `read(key)` returns the section under `key` as plain data, to validate with your own pydantic model.
 - A missing root file, a missing key, a key that isn't a mapping or an environment variable that isn't set raises at once, with the file or the key in the message.
 - A folder that doesn't exist counts as no files.
+
+#### Upgrading from 6.x
+
+7.0.0 gives MCP operations typed fields and one import path for the models:
+
+1. Move `prefix` and `tools` out of an MCP operation's `parameters` to the operation itself. Read them as `operation.prefix`, `operation.listed_tools` and `operation.wrapped_tools`.
+2. An MCP operation now refuses keys it doesn't know; anything of your own goes in `parameters`, which is now optional.
+3. Import every model from `pycraftcore.application_configuration.model` (`from pycraftcore.application_configuration.model import McpConnector, McpOperation`). `model.connector`, `model.operation` and `model.server` are now packages with one module per model, and don't re-export them.
+
+A 6.x MCP operation fails to load and names the key to move (`move parameters.tools to the operation itself`).
 
 #### Upgrading from 5.x
 

@@ -10,27 +10,24 @@ from pycraftcore.application_configuration.enum.run_type_environment import (
     RunTypeEnvironment,
 )
 from pycraftcore.application_configuration.enum.server_type import ServerType
-from pycraftcore.application_configuration.model.configuration import (
-    ApplicationConfiguration,
-)
-from pycraftcore.application_configuration.model.connector import (
+from pycraftcore.application_configuration.model import (
     A2aConnector,
+    A2aOperation,
     ApiConnector,
+    ApiOperation,
+    ApplicationConfiguration,
+    AsgiServer,
     ConnectorRegistry,
     DatabaseConnector,
-    FileConnector,
-    McpConnector,
-    TelemetryConnector,
-)
-from pycraftcore.application_configuration.model.operation import (
-    A2aOperation,
-    ApiOperation,
     DatabaseOperation,
+    FileConnector,
     FileOperation,
+    McpConnector,
     McpOperation,
     OperationRegistry,
+    ServerRegistry,
+    TelemetryConnector,
 )
-from pycraftcore.application_configuration.model.server import AsgiServer, ServerRegistry
 from pycraftcore.logger.enum.log_level import LogLevel
 
 
