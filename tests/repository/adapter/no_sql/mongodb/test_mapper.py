@@ -1,7 +1,6 @@
 from pycraftcore.application_configuration.enum.connector_type import ConnectorType
 from pycraftcore.application_configuration.enum.operation_type import OperationType
-from pycraftcore.application_configuration.model.connector import DatabaseConnector
-from pycraftcore.application_configuration.model.operation import DatabaseOperation
+from pycraftcore.application_configuration.model import DatabaseConnector, DatabaseOperation
 from pycraftcore.authentication.model.auth_type import AuthType
 from pycraftcore.authentication.model.basic_auth import BasicAuth
 from pycraftcore.authentication.model.no_auth import NoAuth

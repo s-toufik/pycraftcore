@@ -1,101 +1,18 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import ClassVar, Literal, overload
-
-from pydantic import ConfigDict
+from typing import Literal, overload
 
 from pycraftcore.application_configuration.enum.connector_type import ConnectorType
-from pycraftcore.authentication import AuthTyping
-
-
-@dataclass(slots=True)
-class BaseConnector:
-    name: str
-    type: ConnectorType
-    auth: AuthTyping
-
-
-@dataclass(slots=True)
-class ApiConnector(BaseConnector):
-    base_url: str
-    timeout: int
-    retry: int
-    certificate: str | None = field(default=None)
-
-
-@dataclass(frozen=True, slots=True)
-class DatabasePool:
-    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    min: int = 1
-    max: int = 1
-
-    def __post_init__(self) -> None:
-        if self.min < 0:
-            raise ValueError("pool min must be 0 or more")
-        if self.max < 1:
-            raise ValueError("pool max must be 1 or more")
-        if self.max < self.min:
-            raise ValueError("pool max must be greater than or equal to min")
-
-
-@dataclass(slots=True)
-class DatabaseConnector(BaseConnector):
-    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    engine: str
-    host: str
-    port: int
-    timeout: int = 5
-    pool: DatabasePool = field(default_factory=DatabasePool)
-
-    def __post_init__(self) -> None:
-        if self.timeout <= 0:
-            raise ValueError("database timeout must be greater than 0")
-
-
-@dataclass(slots=True)
-class FileConnector(BaseConnector):
-    base_path: str
-
-
-@dataclass(slots=True)
-class TelemetryConnector(BaseConnector):
-    host: str | None
-    port: int | None
-
-
-@dataclass(frozen=True, slots=True)
-class McpRefresh:
-    interval: float = 60.0
-    retry_delay: float = 5.0
-    max_retry_delay: float = 60.0
-
-    def __post_init__(self) -> None:
-        if self.interval <= 0:
-            raise ValueError("refresh interval must be greater than 0")
-        if self.retry_delay <= 0:
-            raise ValueError("refresh retry_delay must be greater than 0")
-        if self.max_retry_delay < self.retry_delay:
-            raise ValueError("refresh max_retry_delay must be greater than or equal to retry_delay")
-
-
-@dataclass(slots=True)
-class McpConnector(BaseConnector):
-    base_url: str
-    timeout: int
-    transport: Literal["sse", "streamable_http"] = "streamable_http"
-    certificate: str | None = field(default=None)
-    refresh: McpRefresh = field(default_factory=McpRefresh)
-
-
-@dataclass(slots=True)
-class A2aConnector(BaseConnector):
-    base_url: str
-    timeout: int
-    binding: Literal["JSONRPC", "HTTP+JSON", "GRPC"] = "JSONRPC"
-    certificate: str | None = field(default=None)
-
+from pycraftcore.application_configuration.model.connector.a2a_connector import A2aConnector
+from pycraftcore.application_configuration.model.connector.api_connector import ApiConnector
+from pycraftcore.application_configuration.model.connector.database_connector import (
+    DatabaseConnector,
+)
+from pycraftcore.application_configuration.model.connector.file_connector import FileConnector
+from pycraftcore.application_configuration.model.connector.mcp_connector import McpConnector
+from pycraftcore.application_configuration.model.connector.telemetry_connector import (
+    TelemetryConnector,
+)
 
 ConnectorTyping = (
     ApiConnector

@@ -119,6 +119,59 @@ def test_server_files_are_merged_and_read_as_asgi_servers(tmp_path, monkeypatch)
     assert result.server.asgi("orders-api").docs is True
 
 
+def test_wrapped_mcp_tools_survive_the_yaml_tree_with_their_fixed_arguments(tmp_path, monkeypatch):
+    monkeypatch.setenv("KITCHEN_DB", "kitchen")
+    (tmp_path / "debug" / "connector").mkdir(parents=True)
+    (tmp_path / "debug" / "operation").mkdir(parents=True)
+    (tmp_path / "debug" / "connector" / "mcp.yml").write_text(
+        "connector:\n"
+        "  self:\n"
+        "    name: toolbox\n"
+        "    type: mcp\n"
+        "    base_url: http://toolbox/mcp\n"
+        "    timeout: 30\n"
+        "    auth:\n"
+        "      type: none\n"
+    )
+    (tmp_path / "debug" / "operation" / "scope.yml").write_text(
+        "operation:\n"
+        "  scope_kitchen:\n"
+        "    name: kitchen\n"
+        "    type: mcp\n"
+        "    connector: ${connector.self}\n"
+        "    tools:\n"
+        "      - python_executor\n"
+        "      - name: recipes_find\n"
+        "        tool: mongodb_find\n"
+        "        arguments:\n"
+        "          database: ${oc.env:KITCHEN_DB}\n"
+        "          collection: recipes\n"
+        "          limit: 20\n"
+    )
+    (tmp_path / "root.yml").write_text(
+        "application_configuration:\n"
+        "  env: debug\n"
+        "  run: async\n"
+        "  log: INFO\n"
+        "  server: {}\n"
+        "  connector:\n"
+        "    mcp:\n"
+        "      self: ${connector.self}\n"
+        "  operation:\n"
+        "    scope_kitchen: ${operation.scope_kitchen}\n"
+    )
+
+    kitchen = (
+        OmegaConfigurationReader(RunTypeEnvironment.debug, tmp_path)
+        .read()
+        .operation.mcp("scope_kitchen")
+    )
+
+    assert kitchen.listed_tools == ("python_executor",)
+    (recipes,) = kitchen.wrapped_tools
+    assert recipes.arguments == {"database": "kitchen", "collection": "recipes", "limit": 20}
+
+
 @pytest.mark.skipif(
     bool(MISSING_ENV_VARS),
     reason=f"missing required environment variables: {', '.join(MISSING_ENV_VARS)}",

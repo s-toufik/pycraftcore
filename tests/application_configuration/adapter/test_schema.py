@@ -16,8 +16,7 @@ from pycraftcore.application_configuration.model.configuration import (
     ApplicationConfiguration,
 )
 from pycraftcore.application_configuration.enum.server_type import ServerType
-from pycraftcore.application_configuration.model.connector import McpConnector, McpRefresh
-from pycraftcore.application_configuration.model.server import AsgiServer
+from pycraftcore.application_configuration.model import AsgiServer, McpConnector, McpRefresh
 from pycraftcore.logger.enum.log_level import LogLevel
 
 
@@ -242,3 +241,88 @@ def test_an_a2a_connector_and_operation_resolve_by_their_type():
 
     assert configuration.connector.a2a("agent").binding == "JSONRPC"
     assert configuration.operation.a2a("ask").parameters == {"k": "v"}
+
+
+MCP_CONNECTOR = {
+    "name": "self",
+    "type": "mcp",
+    "auth": {"type": "none"},
+    "base_url": "http://toolbox/mcp",
+    "timeout": 30,
+}
+
+
+def mcp_operation(**values):
+    return {"name": "kitchen", "type": "mcp", "connector": MCP_CONNECTOR} | values
+
+
+def test_an_mcp_operation_reads_named_and_wrapped_tools_from_one_list():
+    schema = ApplicationConfigurationSchema(
+        **REQUIRED
+        | {
+            "operation": {
+                "kitchen": mcp_operation(
+                    prefix="kitchen",
+                    tools=[
+                        "python_executor",
+                        {
+                            "name": "recipes_find",
+                            "tool": "mongodb_find",
+                            "description": "Find recipes.",
+                            "arguments": {"database": "kitchen", "collection": "recipes"},
+                        },
+                    ],
+                )
+            }
+        }
+    )
+
+    kitchen = MapperDomainSchema.map(schema).operation.mcp("kitchen")
+
+    assert kitchen.prefix == "kitchen"
+    assert kitchen.listed_tools == ("python_executor",)
+    (recipes,) = kitchen.wrapped_tools
+    assert (recipes.name, recipes.tool, recipes.description) == (
+        "recipes_find",
+        "mongodb_find",
+        "Find recipes.",
+    )
+    assert recipes.arguments == {"database": "kitchen", "collection": "recipes"}
+
+
+def test_an_mcp_operation_without_tools_or_parameters_still_loads():
+    schema = ApplicationConfigurationSchema(**REQUIRED | {"operation": {"k": mcp_operation()}})
+
+    kitchen = MapperDomainSchema.map(schema).operation.mcp("k")
+
+    assert (kitchen.tools, kitchen.parameters) == ([], {})
+
+
+@pytest.mark.parametrize(
+    ("operation", "location"),
+    [
+        (mcp_operation(tolls=[]), r"mcp\.tolls"),
+        (
+            mcp_operation(tools=[{"name": "recipes_find", "tool": "mongodb_find", "args": {}}]),
+            r"tools\.0\.wrapper\.args",
+        ),
+        (
+            mcp_operation(tools=["python_executor", {"name": "recipes_find"}]),
+            r"tools\.1\.wrapper\.tool",
+        ),
+        (mcp_operation(tools=[42]), r"tools\.0\.wrapper"),
+        (mcp_operation(parameters={"tools": ["x"]}), r"mcp\n.*move parameters\.tools"),
+    ],
+)
+def test_a_misplaced_or_misspelled_mcp_key_is_refused_with_its_path(operation, location):
+    with pytest.raises(ValidationError, match=location):
+        ApplicationConfigurationSchema(**REQUIRED | {"operation": {"k": operation}})
+
+
+def test_a_tool_named_twice_is_refused_when_the_configuration_loads():
+    operation = mcp_operation(
+        tools=["recipes_find", {"name": "recipes_find", "tool": "mongodb_find"}]
+    )
+
+    with pytest.raises(ValidationError, match="tools named more than once: recipes_find"):
+        ApplicationConfigurationSchema(**REQUIRED | {"operation": {"k": operation}})

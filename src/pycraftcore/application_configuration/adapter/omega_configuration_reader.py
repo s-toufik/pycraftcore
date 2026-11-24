@@ -11,9 +11,7 @@ from pycraftcore.application_configuration.adapter.schema import (
 from pycraftcore.application_configuration.enum.run_type_environment import (
     RunTypeEnvironment,
 )
-from pycraftcore.application_configuration.model.configuration import (
-    ApplicationConfiguration,
-)
+from pycraftcore.application_configuration.model import ApplicationConfiguration
 
 
 class OmegaConfigurationReader:

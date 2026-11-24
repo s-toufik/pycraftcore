@@ -1,9 +1,9 @@
-from pycraftcore.application_configuration.model.configuration import (
+from pycraftcore.application_configuration.model import (
     ApplicationConfiguration,
+    ConnectorRegistry,
+    OperationRegistry,
+    ServerRegistry,
 )
-from pycraftcore.application_configuration.model.connector import ConnectorRegistry
-from pycraftcore.application_configuration.model.operation import OperationRegistry
-from pycraftcore.application_configuration.model.server import ServerRegistry
 from pycraftcore.application_configuration.port.configuration import Configuration
 from pycraftcore.application_configuration.port.configuration_reader import (
     ConfigurationReader,

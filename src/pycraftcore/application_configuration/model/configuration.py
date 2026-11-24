@@ -6,9 +6,13 @@ from pycraftcore.application_configuration.enum.run_type_application import (
 from pycraftcore.application_configuration.enum.run_type_environment import (
     RunTypeEnvironment,
 )
-from pycraftcore.application_configuration.model.connector import ConnectorRegistry
-from pycraftcore.application_configuration.model.operation import OperationRegistry
-from pycraftcore.application_configuration.model.server import ServerRegistry
+from pycraftcore.application_configuration.model.connector.connector_registry import (
+    ConnectorRegistry,
+)
+from pycraftcore.application_configuration.model.operation.operation_registry import (
+    OperationRegistry,
+)
+from pycraftcore.application_configuration.model.server.server_registry import ServerRegistry
 from pycraftcore.logger.enum.log_level import LogLevel
 
 

@@ -3,6 +3,14 @@ operation:
     name: mcp_op
     type: mcp
     connector: ${connector.tools}
+    prefix: dummy
+    tools:
+      - echo
+      - name: echo_hello
+        tool: echo
+        description: Echo, always with the same greeting.
+        arguments:
+          message: hello
     parameters:
       header:
         external_header: value_of_external

@@ -1,77 +1,13 @@
 from dataclasses import dataclass, field
-from typing import Any, ClassVar
 
-from pydantic import ConfigDict
-
-from pycraftcore.application_configuration.enum.file_operation_action import (
-    FileOperationAction,
-)
 from pycraftcore.application_configuration.enum.operation_type import OperationType
-from pycraftcore.application_configuration.model.connector import (
-    A2aConnector,
-    ApiConnector,
-    DatabaseConnector,
-    FileConnector,
-    McpConnector,
+from pycraftcore.application_configuration.model.operation.a2a_operation import A2aOperation
+from pycraftcore.application_configuration.model.operation.api_operation import ApiOperation
+from pycraftcore.application_configuration.model.operation.database_operation import (
+    DatabaseOperation,
 )
-from pycraftcore.http.enum.http_method import HttpMethod
-
-
-@dataclass(slots=True)
-class BaseOperation:
-    name: str
-    type: OperationType
-
-
-@dataclass(slots=True)
-class ApiOperation(BaseOperation):
-    connector: ApiConnector
-    endpoint: str
-    method: HttpMethod
-    parameters: dict[str, Any]
-
-
-@dataclass(slots=True)
-class FileOperation(BaseOperation):
-    connector: FileConnector
-    action: FileOperationAction
-    parameters: dict[str, Any]
-
-
-@dataclass(slots=True)
-class McpOperation(BaseOperation):
-    connector: McpConnector
-    parameters: dict[str, Any]
-
-
-@dataclass(slots=True)
-class A2aOperation(BaseOperation):
-    connector: A2aConnector
-    parameters: dict[str, Any]
-
-
-@dataclass(slots=True)
-class DatabaseOperation(BaseOperation):
-    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    connector: DatabaseConnector
-    database: str
-    collections: dict[str, str] = field(default_factory=dict)
-    ttl: int | None = None
-    parameters: dict[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        if not self.database.strip():
-            raise ValueError(f"database operation {self.name!r} needs a database")
-        if self.ttl is not None and self.ttl < 0:
-            raise ValueError(f"database operation {self.name!r}: ttl must be 0 or more")
-
-    def collection(self, role: str) -> str:
-        try:
-            return self.collections[role]
-        except KeyError:
-            raise KeyError(f"database operation {self.name!r} has no collection {role!r}") from None
-
+from pycraftcore.application_configuration.model.operation.file_operation import FileOperation
+from pycraftcore.application_configuration.model.operation.mcp_operation import McpOperation
 
 OperationTyping = FileOperation | ApiOperation | McpOperation | A2aOperation | DatabaseOperation
 

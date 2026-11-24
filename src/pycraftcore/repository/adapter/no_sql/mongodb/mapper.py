@@ -1,4 +1,4 @@
-from pycraftcore.application_configuration.model.operation import DatabaseOperation
+from pycraftcore.application_configuration.model import DatabaseOperation
 from pycraftcore.repository.adapter.no_sql.mongodb.schema import MongoConnector
 
 MILLISECONDS_PER_SECOND: int = 1000
