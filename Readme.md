@@ -77,6 +77,7 @@ Each module stands on its own: use the ones you need. The modules today (new one
 | `application_configuration` | YAML configuration (connectors, operations, servers and the log level) driven by environment variables, loaded into typed objects |
 | `authentication` | The auth models a connector can use: none, basic, token |
 | `mcp` | MCP without a library: `McpClient` and `ToolServer` ports, `RemoteTool`, `CallResult`, `ServedTool`, and `model_from_schema` (a JSON Schema as a pydantic model) |
+| `mcp_sdk` | Those ports on the official MCP SDK: `SdkMcpClient`, `SdkToolServer`, `create_server`, `create_app` |
 | `jwt` | Signed tokens: `TokenIssuer` and `TokenVerifier` ports, `TokenClaims`, and `PyJwtTokens` (HMAC, PyJWT) |
 | `logger` | One log format for the whole process, with the request id on every line |
 | `context` | `request_id_context`, the request id shared by logs, telemetry and outgoing calls |
@@ -403,6 +404,28 @@ app.add_middleware(BearerTokenMiddleware, verifier=tokens, protected=["/mcp"])
 - `PyJwtTokens` signs with HMAC only, and refuses a key shorter than its hash (32 bytes for HS256, 48 for HS384, 64 for HS512), as RFC 7518 asks. `verify` accepts only its own algorithm, so an unsigned (`alg: none`) or differently signed token is refused.
 - `verify` raises `InvalidTokenException` for a forged, malformed or expired token, or one without `sub` and `iat`.
 - `BearerTokenMiddleware` is plain ASGI, so it works with Starlette, FastAPI, Litestar or BlackSheep. A request to a protected path (the path itself or anything under it) without a valid `Authorization: Bearer <token>` gets `401` with `{"detail": …}` and `WWW-Authenticate: Bearer`; the others pass untouched. The claims are left in the request state: `request.state.token_claims`.
+
+### MCP
+
+`pycraftcore.mcp` says what an MCP client and an MCP server do, without importing an MCP library; `pycraftcore.mcp_sdk` does it with the official SDK. Code that depends on the ports can change library by changing only where it builds them.
+
+```python
+from pycraftcore.mcp import ServedTool, ToolCallError
+from pycraftcore.mcp_sdk import SdkMcpClient, SdkToolServer, create_app, create_server, mcp_path
+
+client = SdkMcpClient(connector, operation, logger)  # McpClient
+tools = await client.list_tools()  # [RemoteTool(name, description, input_schema, output_schema)]
+result = await client.call_tool("find", {"limit": 5})  # CallResult; result.text joins its text
+
+server = create_server(name="toolbox", version="1.3.0")
+SdkToolServer(server).add_tool(ServedTool("echo", "Repeat text.", EchoInput, EchoOutput, handler))
+app = create_app(api, {mcp_path(connector): server}, connector, routes=[actuator_router(actuator)])
+```
+
+- `SdkMcpClient` opens a session per call over the connector's transport (`streamable_http` or `sse`), with the connector's auth, the operation's `headers` and the request id. It retries the connection (3 attempts, 0.5 s doubling to 5 s by default) and raises `McpUnavailableException`, naming the causes, when the server can't be reached.
+- A `ServedTool`'s schemas come from its pydantic models; its handler gets the arguments as a dict and raises `ToolCallError` for an error the client should see.
+- `create_server` makes the SDK's spans skip notifications. `create_app` serves each server at its path (stateless, JSON answers), accepts only the connector's host and `allowed_hosts`, and adds gzip, the request id and your `routes`, `middleware` and `lifespan` (entered after the servers').
+- `model_from_schema(name, schema)` keeps enum, const, unions, bounds, patterns (Python's `re`; one it can't compile is skipped), `$ref` and nested objects (as TypedDicts, sent back as given); it never validates more strictly than the schema.
 
 ### Serving an HTTP API
 
