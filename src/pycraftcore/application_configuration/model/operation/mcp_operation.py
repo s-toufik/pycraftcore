@@ -9,7 +9,7 @@ from pycraftcore.application_configuration.model.operation.base_operation import
 
 _MCP_TOOL_NAME = re.compile(r"[A-Za-z0-9_.-]{1,128}")
 _MCP_TOOL_NAME_RULE: str = "1 to 128 letters, digits, '_', '-' or '.'"
-_MOVED_OUT_OF_PARAMETERS: tuple[str, ...] = ("prefix", "tools")
+_MOVED_OUT_OF_PARAMETERS: tuple[str, ...] = ("prefix", "tools", "headers", "header")
 
 
 def _is_mcp_tool_name(value: str) -> bool:
@@ -52,6 +52,7 @@ class McpOperation(BaseOperation):
     connector: McpConnector
     prefix: str | None = None
     tools: list[McpToolEntry] = field(default_factory=list)
+    headers: dict[str, str] = field(default_factory=dict)
     parameters: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

@@ -300,7 +300,7 @@ tree = OmegaTreeReader(agent / "agent.yml", [agent / "skills"]).read("agent")  #
 
 7.0.0 gives MCP operations typed fields and one import path for the models:
 
-1. Move `prefix` and `tools` out of an MCP operation's `parameters` to the operation itself. Read them as `operation.prefix`, `operation.listed_tools` and `operation.wrapped_tools`.
+1. Move `prefix`, `tools` and `headers` (or `header`) out of an MCP operation's `parameters` to the operation itself. Read them as `operation.prefix`, `operation.listed_tools`, `operation.wrapped_tools` and `operation.headers`.
 2. An MCP operation now refuses keys it doesn't know; anything of your own goes in `parameters`, which is now optional.
 3. Import every model from `pycraftcore.application_configuration.model` (`from pycraftcore.application_configuration.model import McpConnector, McpOperation`). `model.connector`, `model.operation` and `model.server` are now packages with one module per model, and don't re-export them.
 
