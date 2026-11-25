@@ -393,10 +393,10 @@ from datetime import timedelta
 from pycraftcore.jwt.adapter import PyJwtTokens
 from pycraftcore.web.middleware import BearerTokenMiddleware
 
-tokens = PyJwtTokens(key)                       # HS256 by default; HS384, HS512
+tokens = PyJwtTokens(key)  # HS256 by default; HS384, HS512
 token = tokens.issue("toufik", timedelta(hours=5))
-never = tokens.issue("agent-runtime", None)     # no `exp` claim: it never expires
-claims = tokens.verify(token)                   # TokenClaims(subject, issued_at, expires_at)
+never = tokens.issue("agent-runtime", None)  # no `exp` claim: it never expires
+claims = tokens.verify(token)  # TokenClaims(subject, issued_at, expires_at)
 
 app.add_middleware(BearerTokenMiddleware, verifier=tokens, protected=["/mcp"])
 ```
