@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pycraftcore"
-version = "7.0.0"
+version = "7.0.1"
 authors = [
     { name = "Toufik Saouchi", email = "toufik.saouchi@gmail.com" },
 ]
@@ -36,6 +36,7 @@ query_language = ["sqlglot"]
 computation_engine = ["numpy", "scipy"]
 serializer = ["orjson", "msgpack", "pydantic>=2"]
 file_handler = ["orjson", "pyyaml", "openpyxl", "xlrd", "pyarrow"]
+jwt = ["pyjwt"]
 runtime = ["pydantic>=2"]
 web = ["pycraftcore[context]"]
 
@@ -60,6 +61,7 @@ all = [
     "pycraftcore[context]",
     "pycraftcore[file_handler]",
     "pycraftcore[http]",
+    "pycraftcore[jwt]",
     "pycraftcore[logger]",
     "pycraftcore[profiler]",
     "pycraftcore[query_language]",

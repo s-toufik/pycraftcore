@@ -45,6 +45,7 @@ A bare `pycraftcore` installs no third-party packages: only `authentication`, `c
 | `computation_engine` | numpy, scipy | — |
 | `serializer` | orjson, msgpack, pydantic | — |
 | `file_handler` | orjson, pyyaml, openpyxl, xlrd, pyarrow | — |
+| `jwt` | pyjwt | — |
 | `runtime` | pydantic | — |
 | `runtime-sandbox` | pandas, numpy, matplotlib, python-dateutil | `runtime` |
 | `circuit_breaker` | aiobreaker | `logger` |
@@ -73,11 +74,12 @@ Each module stands on its own: use the ones you need. The modules today (new one
 |---|---|
 | `application_configuration` | YAML configuration (connectors, operations, servers and the log level) driven by environment variables, loaded into typed objects |
 | `authentication` | The auth models a connector can use: none, basic, token |
+| `jwt` | Signed tokens: `TokenIssuer` and `TokenVerifier` ports, `TokenClaims`, and `PyJwtTokens` (HMAC, PyJWT) |
 | `logger` | One log format for the whole process, with the request id on every line |
 | `context` | `request_id_context`, the request id shared by logs, telemetry and outgoing calls |
 | `telemetry` | OpenTelemetry traces, metrics and logs, exported to an OTLP collector (or nothing) |
 | `http` | Async HTTP clients (httpx, aiohttp) and retry policies |
-| `web` | The framework-free parts of an HTTP API: `ApiSettings` (title, version, base path, docs, CORS), the actuator, `RequestIDMiddleware`, server-sent events with heartbeats |
+| `web` | The framework-free parts of an HTTP API: `ApiSettings` (title, version, base path, docs, CORS), the actuator, `RequestIDMiddleware`, `BearerTokenMiddleware`, server-sent events with heartbeats |
 | `web_litestar`, `web_fastapi`, `web_blacksheep` | One toolkit per framework: build the app with pycraftcore's conventions and write your routes with the framework's own features |
 | `resilient_http` | An HTTP transport with retries and a circuit breaker built in |
 | `retry`, `circuit_breaker` | The two policies on their own, for any async call |
@@ -378,6 +380,26 @@ client = ResilientTransportFactory(
 ```
 
 `client` is an `httpx.AsyncClient`: pass it to any library that accepts one.
+
+### Tokens (JWT)
+
+```python
+from datetime import timedelta
+
+from pycraftcore.jwt.adapter import PyJwtTokens
+from pycraftcore.web.middleware import BearerTokenMiddleware
+
+tokens = PyJwtTokens(key)                       # HS256 by default; HS384, HS512
+token = tokens.issue("toufik", timedelta(hours=5))
+never = tokens.issue("agent-runtime", None)     # no `exp` claim: it never expires
+claims = tokens.verify(token)                   # TokenClaims(subject, issued_at, expires_at)
+
+app.add_middleware(BearerTokenMiddleware, verifier=tokens, protected=["/mcp"])
+```
+
+- `PyJwtTokens` signs with HMAC only, and refuses a key shorter than its hash (32 bytes for HS256, 48 for HS384, 64 for HS512), as RFC 7518 asks. `verify` accepts only its own algorithm, so an unsigned (`alg: none`) or differently signed token is refused.
+- `verify` raises `InvalidTokenException` for a forged, malformed or expired token, or one without `sub` and `iat`.
+- `BearerTokenMiddleware` is plain ASGI, so it works with Starlette, FastAPI, Litestar or BlackSheep. A request to a protected path (the path itself or anything under it) without a valid `Authorization: Bearer <token>` gets `401` with `{"detail": …}` and `WWW-Authenticate: Bearer`; the others pass untouched. The claims are left in the request state: `request.state.token_claims`.
 
 ### Serving an HTTP API
 

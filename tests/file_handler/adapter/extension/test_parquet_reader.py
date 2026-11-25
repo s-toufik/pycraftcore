@@ -15,7 +15,9 @@ def test_read_parses_parquet_file_into_list_of_dicts(tmp_path):
 
 def test_read_returns_empty_list_for_empty_table(tmp_path):
     file_path = tmp_path / "empty.parquet"
-    pq.write_table(pa.Table.from_pylist([], schema=pa.schema([("name", pa.string())])), str(file_path))
+    pq.write_table(
+        pa.Table.from_pylist([], schema=pa.schema([("name", pa.string())])), str(file_path)
+    )
 
     result = ParquetFileReader.read(str(file_path))
 
