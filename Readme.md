@@ -445,6 +445,8 @@ app = create_app(
 )
 ```
 
+An actuator can also report what the service depends on: `Actuator(..., dependencies=lambda: {"mongodb": DependencyReport(HealthStatus.DOWN, since, "refused")})` adds a `dependencies` block to `/actuator/health`; without it the answer stays `{"status": "UP"}`.
+
 Each toolkit — `pycraftcore.web_litestar`, `web_fastapi`, `web_blacksheep` — has the same four functions, with the framework's own types:
 
 | Function | What it gives you |

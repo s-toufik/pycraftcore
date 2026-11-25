@@ -1,9 +1,13 @@
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from typing import Final
 
 from pycraftcore.web.actuator.enum.health_status import HealthStatus
-from pycraftcore.web.actuator.schema.actuator_response import HealthSchema, InfoSchema
+from pycraftcore.web.actuator.schema.actuator_response import (
+    DependencyReport,
+    HealthSchema,
+    InfoSchema,
+)
 
 ACTUATOR_PATH: Final[str] = "/actuator"
 ACTUATOR_TAG: Final[str] = "actuator"
@@ -16,9 +20,10 @@ class Actuator:
     environment: str
     authors: str
     is_ready: Callable[[], bool]
+    dependencies: Callable[[], Mapping[str, DependencyReport]] = field(default=dict)
 
     def health(self) -> HealthSchema:
-        return HealthSchema(status=HealthStatus.UP)
+        return HealthSchema(status=HealthStatus.UP, dependencies=dict(self.dependencies()) or None)
 
     def readiness(self) -> HealthSchema:
         return HealthSchema(status=HealthStatus.UP if self.is_ready() else HealthStatus.DOWN)
