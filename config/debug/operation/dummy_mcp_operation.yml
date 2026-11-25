@@ -11,6 +11,5 @@ operation:
         description: Echo, always with the same greeting.
         arguments:
           message: hello
-    parameters:
-      header:
-        external_header: value_of_external
+    headers:
+      external_header: value_of_external

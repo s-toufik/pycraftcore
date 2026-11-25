@@ -45,13 +45,16 @@ A bare `pycraftcore` installs no third-party packages: only `authentication`, `c
 | `computation_engine` | numpy, scipy | — |
 | `serializer` | orjson, msgpack, pydantic | — |
 | `file_handler` | orjson, pyyaml, openpyxl, xlrd, pyarrow | — |
+| `jwt` | pyjwt | — |
+| `mcp` | pydantic | — |
 | `runtime` | pydantic | — |
 | `runtime-sandbox` | pandas, numpy, matplotlib, python-dateutil | `runtime` |
 | `circuit_breaker` | aiobreaker | `logger` |
 | `retry` | tenacity | `logger` |
 | `http` | aiohttp, httpx, orjson | `context`, `logger` |
 | `web` | none | `context` |
-| `web_fastapi`, `web_litestar`, `web_blacksheep` | fastapi, litestar, blacksheep (one each) | `web` |
+| `web_fastapi`, `web_litestar`, `web_blacksheep`, `web_starlette` | fastapi, litestar, blacksheep, starlette (one each) | `web` |
+| `mcp_sdk` | mcp (the official MCP SDK) | `mcp`, `application_configuration`, `authentication`, `context`, `logger`, `web_starlette` |
 | `application_configuration` | omegaconf, pydantic, python-dotenv | `http`, `logger`, `authentication` |
 | `telemetry` | opentelemetry (api, sdk, otlp exporter, logging instrumentation) | `application_configuration`, `context` |
 | `resilient_http` | aiohttp, httpx | `circuit_breaker`, `http`, `retry`, `telemetry` |
@@ -73,12 +76,15 @@ Each module stands on its own: use the ones you need. The modules today (new one
 |---|---|
 | `application_configuration` | YAML configuration (connectors, operations, servers and the log level) driven by environment variables, loaded into typed objects |
 | `authentication` | The auth models a connector can use: none, basic, token |
+| `mcp` | MCP without a library: `McpClient` and `ToolServer` ports, `RemoteTool`, `CallResult`, `ServedTool`, and `model_from_schema` (a JSON Schema as a pydantic model) |
+| `mcp_sdk` | Those ports on the official MCP SDK: `SdkMcpClient`, `SdkToolServer`, `create_server`, `create_app` |
+| `jwt` | Signed tokens: `TokenIssuer` and `TokenVerifier` ports, `TokenClaims`, and `PyJwtTokens` (HMAC, PyJWT) |
 | `logger` | One log format for the whole process, with the request id on every line |
 | `context` | `request_id_context`, the request id shared by logs, telemetry and outgoing calls |
 | `telemetry` | OpenTelemetry traces, metrics and logs, exported to an OTLP collector (or nothing) |
 | `http` | Async HTTP clients (httpx, aiohttp) and retry policies |
-| `web` | The framework-free parts of an HTTP API: `ApiSettings` (title, version, base path, docs, CORS), the actuator, `RequestIDMiddleware`, server-sent events with heartbeats |
-| `web_litestar`, `web_fastapi`, `web_blacksheep` | One toolkit per framework: build the app with pycraftcore's conventions and write your routes with the framework's own features |
+| `web` | The framework-free parts of an HTTP API: `ApiSettings` (title, version, base path, docs, CORS), the actuator, `RequestIDMiddleware`, `BearerTokenMiddleware`, server-sent events with heartbeats |
+| `web_litestar`, `web_fastapi`, `web_blacksheep`, `web_starlette` | One toolkit per framework: build the app with pycraftcore's conventions and write your routes with the framework's own features |
 | `resilient_http` | An HTTP transport with retries and a circuit breaker built in |
 | `retry`, `circuit_breaker` | The two policies on their own, for any async call |
 | `repository` | Async repositories built from a database connector — today SQLite (pooled), PostgreSQL, MongoDB (with TTL indexes kept to a set expiry), and SQLAlchemy (PostgreSQL or SQLite, for libraries that need an engine) |
@@ -273,7 +279,7 @@ server = config.server.asgi("weather-api")  # AsgiServer
 
 - `log` is a `LogLevel` (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`, upper case): pass it to `configure_logging(config.log)`.
 - A server holds `base_path`, `docs` and `cors_origins`: turn them into the web toolkit's `ApiSettings` (see [Serving an HTTP API](#serving-an-http-api)). Which framework serves the API is a choice made in code, not in the configuration.
-- An MCP connector can hold a `refresh` block for clients that re-read the server's tools in the background: `interval` (seconds between reads while it answers, default 60), `retry_delay` (the first wait after a failure, default 5, doubled each time) and `max_retry_delay` (the longest wait, default 60). Leave it out to keep the defaults.
+- An MCP connector can hold a `refresh` block (`connector.refresh.delay_after(failures)` gives the wait before the next read: `interval` while it answers, then `retry_delay` doubled up to `max_retry_delay`) for clients that re-read the server's tools in the background: `interval` (seconds between reads while it answers, default 60), `retry_delay` (the first wait after a failure, default 5, doubled each time) and `max_retry_delay` (the longest wait, default 60). Leave it out to keep the defaults.
 - `parameters` is yours: pycraftcore passes it through untouched. `oc.env` always gives strings, so convert the values where you read them.
 - `log` and `server` are required, like `connector` and `operation`. A service that serves no HTTP API writes `server: {}`.
 
@@ -298,7 +304,7 @@ tree = OmegaTreeReader(agent / "agent.yml", [agent / "skills"]).read("agent")  #
 
 7.0.0 gives MCP operations typed fields and one import path for the models:
 
-1. Move `prefix` and `tools` out of an MCP operation's `parameters` to the operation itself. Read them as `operation.prefix`, `operation.listed_tools` and `operation.wrapped_tools`.
+1. Move `prefix`, `tools` and `headers` (or `header`) out of an MCP operation's `parameters` to the operation itself. Read them as `operation.prefix`, `operation.listed_tools`, `operation.wrapped_tools` and `operation.headers`.
 2. An MCP operation now refuses keys it doesn't know; anything of your own goes in `parameters`, which is now optional.
 3. Import every model from `pycraftcore.application_configuration.model` (`from pycraftcore.application_configuration.model import McpConnector, McpOperation`). `model.connector`, `model.operation` and `model.server` are now packages with one module per model, and don't re-export them.
 
@@ -379,6 +385,48 @@ client = ResilientTransportFactory(
 
 `client` is an `httpx.AsyncClient`: pass it to any library that accepts one.
 
+### Tokens (JWT)
+
+```python
+from datetime import timedelta
+
+from pycraftcore.jwt.adapter import PyJwtTokens
+from pycraftcore.web.middleware import BearerTokenMiddleware
+
+tokens = PyJwtTokens(key)  # HS256 by default; HS384, HS512
+token = tokens.issue("toufik", timedelta(hours=5))
+never = tokens.issue("agent-runtime", None)  # no `exp` claim: it never expires
+claims = tokens.verify(token)  # TokenClaims(subject, issued_at, expires_at)
+
+app.add_middleware(BearerTokenMiddleware, verifier=tokens, protected=["/mcp"])
+```
+
+- `PyJwtTokens` signs with HMAC only, and refuses a key shorter than its hash (32 bytes for HS256, 48 for HS384, 64 for HS512), as RFC 7518 asks. `verify` accepts only its own algorithm, so an unsigned (`alg: none`) or differently signed token is refused.
+- `verify` raises `InvalidTokenException` for a forged, malformed or expired token, or one without `sub` and `iat`.
+- `BearerTokenMiddleware` is plain ASGI, so it works with Starlette, FastAPI, Litestar or BlackSheep. A request to a protected path (the path itself or anything under it) without a valid `Authorization: Bearer <token>` gets `401` with `{"detail": …}` and `WWW-Authenticate: Bearer`; the others pass untouched. The claims are left in the request state: `request.state.token_claims`.
+
+### MCP
+
+`pycraftcore.mcp` says what an MCP client and an MCP server do, without importing an MCP library; `pycraftcore.mcp_sdk` does it with the official SDK. Code that depends on the ports can change library by changing only where it builds them.
+
+```python
+from pycraftcore.mcp import ServedTool, ToolCallError
+from pycraftcore.mcp_sdk import SdkMcpClient, SdkToolServer, create_app, create_server, mcp_path
+
+client = SdkMcpClient(connector, operation, logger)  # McpClient
+tools = await client.list_tools()  # [RemoteTool(name, description, input_schema, output_schema)]
+result = await client.call_tool("find", {"limit": 5})  # CallResult; result.text joins its text
+
+server = create_server(name="toolbox", version="1.3.0")
+SdkToolServer(server).add_tool(ServedTool("echo", "Repeat text.", EchoInput, EchoOutput, handler))
+app = create_app(api, {mcp_path(connector): server}, connector, routes=[actuator_router(actuator)])
+```
+
+- `SdkMcpClient` opens a session per call over the connector's transport (`streamable_http` or `sse`), with the connector's auth, the operation's `headers` and the request id. It retries the connection (3 attempts, 0.5 s doubling to 5 s by default) and raises `McpUnavailableException`, naming the causes, when the server can't be reached.
+- A `ServedTool`'s schemas come from its pydantic models; its handler gets the arguments as a dict and raises `ToolCallError` for an error the client should see.
+- `create_server` makes the SDK's spans skip notifications. `create_app` serves each server at its path (stateless, JSON answers), accepts only the connector's host and `allowed_hosts`, and adds gzip, the request id and your `routes`, `middleware` and `lifespan` (entered after the servers').
+- `model_from_schema(name, schema)` keeps enum, const, unions, bounds, patterns (Python's `re`; one it can't compile is skipped), `$ref` and nested objects (as TypedDicts, sent back as given); it never validates more strictly than the schema.
+
 ### Serving an HTTP API
 
 Pick a framework and write your routes with its own features: msgspec Structs and dependency injection with Litestar, pydantic and `Depends` with FastAPI, BlackSheep's binders and services. pycraftcore gives every framework the same toolkit, so what each service would otherwise repeat is done once: the request id, CORS, the API documentation, one base path for everything, `{"detail": …}` errors, the actuator, and server-sent events that stop when the client leaves.
@@ -422,6 +470,10 @@ app = create_app(
     debug=False,
 )
 ```
+
+An actuator can also report what the service depends on: `Actuator(..., dependencies=lambda: {"mongodb": DependencyReport(HealthStatus.DOWN, since, "refused")})` adds a `dependencies` block to `/actuator/health`; without it the answer stays `{"status": "UP"}`.
+
+`pycraftcore.web_starlette` is smaller: `create_app` and `actuator_router` only, for apps built on Starlette itself, such as the MCP SDK's (see [MCP](#mcp)).
 
 Each toolkit — `pycraftcore.web_litestar`, `web_fastapi`, `web_blacksheep` — has the same four functions, with the framework's own types:
 

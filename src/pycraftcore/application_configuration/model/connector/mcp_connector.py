@@ -18,6 +18,11 @@ class McpRefresh:
         if self.max_retry_delay < self.retry_delay:
             raise ValueError("refresh max_retry_delay must be greater than or equal to retry_delay")
 
+    def delay_after(self, failures: int) -> float:
+        if failures <= 0:
+            return self.interval
+        return min(self.retry_delay * 2 ** (failures - 1), self.max_retry_delay)
+
 
 @dataclass(slots=True)
 class McpConnector(BaseConnector):

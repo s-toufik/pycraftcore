@@ -15,7 +15,7 @@ class LoadApplicationConfiguration:
         self._configuration_reader = configuration_reader
         self._logger = logger
 
-    def load(self) -> ApplicationConfiguration | None:
+    def load(self) -> ApplicationConfiguration:
         try:
             configuration: ApplicationConfiguration = self._configuration_reader.read()
             self._logger.info("Configuration loaded successfully")
