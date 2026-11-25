@@ -76,6 +76,7 @@ Each module stands on its own: use the ones you need. The modules today (new one
 |---|---|
 | `application_configuration` | YAML configuration (connectors, operations, servers and the log level) driven by environment variables, loaded into typed objects |
 | `authentication` | The auth models a connector can use: none, basic, token |
+| `mcp` | MCP without a library: `McpClient` and `ToolServer` ports, `RemoteTool`, `CallResult`, `ServedTool`, and `model_from_schema` (a JSON Schema as a pydantic model) |
 | `jwt` | Signed tokens: `TokenIssuer` and `TokenVerifier` ports, `TokenClaims`, and `PyJwtTokens` (HMAC, PyJWT) |
 | `logger` | One log format for the whole process, with the request id on every line |
 | `context` | `request_id_context`, the request id shared by logs, telemetry and outgoing calls |
