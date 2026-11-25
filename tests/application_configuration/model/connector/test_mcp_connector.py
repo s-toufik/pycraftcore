@@ -32,3 +32,17 @@ def test_mcp_connector_defaults_its_refresh_settings():
 def test_mcp_refresh_rejects_settings_that_cannot_schedule(settings, message):
     with pytest.raises(ValueError, match=message):
         McpRefresh(**settings)
+
+
+@pytest.mark.parametrize(
+    ("failures", "delay"),
+    [(0, 60.0), (1, 5.0), (2, 10.0), (3, 20.0), (4, 40.0), (5, 60.0), (9, 60.0)],
+)
+def test_the_refresh_waits_its_interval_then_backs_off_up_to_its_maximum(failures, delay) -> None:
+    assert McpRefresh().delay_after(failures) == delay
+
+
+def test_the_refresh_follows_its_configured_numbers() -> None:
+    refresh = McpRefresh(interval=120, retry_delay=2, max_retry_delay=10)
+
+    assert [refresh.delay_after(failures) for failures in range(6)] == [120, 2, 4, 8, 10, 10]

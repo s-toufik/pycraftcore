@@ -67,6 +67,8 @@ def test_a_prefix_that_cannot_start_a_tool_name_is_refused(prefix):
     [
         ({"tools": ["jira_search"]}, r"parameters\.tools"),
         ({"prefix": "jira", "tools": []}, r"parameters\.prefix, parameters\.tools"),
+        ({"headers": {"X-Team": "k"}}, r"parameters\.headers"),
+        ({"header": {"X-Team": "k"}}, r"parameters\.header"),
     ],
 )
 def test_a_6x_prefix_or_tools_left_in_parameters_is_refused(parameters, keys):
@@ -75,9 +77,9 @@ def test_a_6x_prefix_or_tools_left_in_parameters_is_refused(parameters, keys):
 
 
 def test_other_parameters_are_passed_through():
-    operation = make_mcp_operation(parameters={"header": {"x-team": "kitchen"}})
+    operation = make_mcp_operation(parameters={"page_size": 50})
 
-    assert operation.parameters == {"header": {"x-team": "kitchen"}}
+    assert operation.parameters == {"page_size": 50}
 
 
 @pytest.mark.parametrize("entry", ["", "  ", " python_executor", "python_executor\n"])
@@ -127,3 +129,7 @@ def test_a_pattern_is_not_compared_with_the_names_it_could_match():
     operation = make_mcp_operation(tools=["mongodb_*", McpTool(name="mongodb_find", tool="x")])
 
     assert operation.listed_tools == ("mongodb_*",)
+
+
+def test_an_mcp_operation_sends_its_headers_as_written() -> None:
+    assert make_mcp_operation(headers={"X-Team": "kitchen"}).headers == {"X-Team": "kitchen"}
