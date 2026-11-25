@@ -2346,7 +2346,7 @@ wheels = [
 
 [[package]]
 name = "pycraftcore"
-version = "7.0.1"
+version = "7.1.0"
 source = { editable = "." }
 
 [package.optional-dependencies]
