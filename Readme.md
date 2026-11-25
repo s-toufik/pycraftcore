@@ -82,7 +82,7 @@ Each module stands on its own: use the ones you need. The modules today (new one
 | `telemetry` | OpenTelemetry traces, metrics and logs, exported to an OTLP collector (or nothing) |
 | `http` | Async HTTP clients (httpx, aiohttp) and retry policies |
 | `web` | The framework-free parts of an HTTP API: `ApiSettings` (title, version, base path, docs, CORS), the actuator, `RequestIDMiddleware`, `BearerTokenMiddleware`, server-sent events with heartbeats |
-| `web_litestar`, `web_fastapi`, `web_blacksheep` | One toolkit per framework: build the app with pycraftcore's conventions and write your routes with the framework's own features |
+| `web_litestar`, `web_fastapi`, `web_blacksheep`, `web_starlette` | One toolkit per framework: build the app with pycraftcore's conventions and write your routes with the framework's own features |
 | `resilient_http` | An HTTP transport with retries and a circuit breaker built in |
 | `retry`, `circuit_breaker` | The two policies on their own, for any async call |
 | `repository` | Async repositories built from a database connector — today SQLite (pooled), PostgreSQL, MongoDB (with TTL indexes kept to a set expiry), and SQLAlchemy (PostgreSQL or SQLite, for libraries that need an engine) |
@@ -448,6 +448,8 @@ app = create_app(
 ```
 
 An actuator can also report what the service depends on: `Actuator(..., dependencies=lambda: {"mongodb": DependencyReport(HealthStatus.DOWN, since, "refused")})` adds a `dependencies` block to `/actuator/health`; without it the answer stays `{"status": "UP"}`.
+
+`pycraftcore.web_starlette` is smaller: `create_app` and `actuator_router` only, for apps built on Starlette itself, such as the MCP SDK's (see [MCP](#mcp)).
 
 Each toolkit — `pycraftcore.web_litestar`, `web_fastapi`, `web_blacksheep` — has the same four functions, with the framework's own types:
 
