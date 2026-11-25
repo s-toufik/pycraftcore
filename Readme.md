@@ -46,13 +46,15 @@ A bare `pycraftcore` installs no third-party packages: only `authentication`, `c
 | `serializer` | orjson, msgpack, pydantic | — |
 | `file_handler` | orjson, pyyaml, openpyxl, xlrd, pyarrow | — |
 | `jwt` | pyjwt | — |
+| `mcp` | pydantic | — |
 | `runtime` | pydantic | — |
 | `runtime-sandbox` | pandas, numpy, matplotlib, python-dateutil | `runtime` |
 | `circuit_breaker` | aiobreaker | `logger` |
 | `retry` | tenacity | `logger` |
 | `http` | aiohttp, httpx, orjson | `context`, `logger` |
 | `web` | none | `context` |
-| `web_fastapi`, `web_litestar`, `web_blacksheep` | fastapi, litestar, blacksheep (one each) | `web` |
+| `web_fastapi`, `web_litestar`, `web_blacksheep`, `web_starlette` | fastapi, litestar, blacksheep, starlette (one each) | `web` |
+| `mcp_sdk` | mcp (the official MCP SDK) | `mcp`, `application_configuration`, `authentication`, `context`, `logger`, `web_starlette` |
 | `application_configuration` | omegaconf, pydantic, python-dotenv | `http`, `logger`, `authentication` |
 | `telemetry` | opentelemetry (api, sdk, otlp exporter, logging instrumentation) | `application_configuration`, `context` |
 | `resilient_http` | aiohttp, httpx | `circuit_breaker`, `http`, `retry`, `telemetry` |
